@@ -1,4 +1,4 @@
-import { Hono, type MiddlewareHandler } from "hono";
+import type { Hono, MiddlewareHandler } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { z } from "zod";
 import { SqliteCrawlStore } from "@dox-scraper/storage";
