@@ -171,11 +171,11 @@ const job = new CrawlJob({
   canFetch: checkRobotsAndSitePermission,
   acquirePermit: (url, signal) => limiter.acquire(url, signal),
   loadPage: async (url, limits) => {
-    // Production loader must respect the provided AbortSignal.
     const response = await fetchPage(url, {
       maxRedirects: 0,
       maxBytes: limits.maxBytes,
       timeoutMs: limits.timeoutMs,
+      signal: limits.signal,
     });
     return {
       finalUrl: response.finalUrl,
@@ -190,11 +190,47 @@ const job = new CrawlJob({
 
 This is an **integration sketch**, not production-ready copy/paste code.
 The site-permission function has deliberately not been implemented. The
-current fetcher uses its own timeout and does not yet accept the job's
-abort signal. Both requirements must be met before deploying crawl jobs.
+fetcher now accepts the job's AbortSignal and enforces a single timeout
+budget across redirects. Robots.txt access enforcement remains mandatory.
 The job releases permits on every success/failure/cancellation path;
 it observes 403, 429, 503 and Retry-After before releasing them.
 
 Rate limiting is **per-process only**, not globally coordinated across
 multiple worker instances. It is not a way to bypass access restrictions.
 A robots.txt parser and enforceable policy are still required.
+
+## SSRF and redirect defenses — Issue #14
+
+`@dox-scraper/fetcher` uses conservative public-address checks before
+starting a network request. It rejects the following targets:
+
+- Any URL scheme other than HTTP(S), embedded URL credentials and localhost,
+  bare local DNS names, `.local`, `.internal`, `.home.arpa` and other
+  common local-only suffixes.
+- Cloud instance metadata names such as `metadata.google.internal` and
+  `instance-data`. Metadata IPs such as `169.254.169.254`,
+  `100.100.100.200` and `fd00:ec2::254` are covered by reserved ranges.
+- IPv4 loopback, private, carrier-grade NAT, link-local, benchmark,
+  documentation, multicast, and reserved space.
+- IPv6 loopback, private and link-local, documentation, Teredo/6to4
+  transition space, and non-public-unicast allocations. IPv4-mapped IPv6
+  addresses are checked according to their embedded IPv4 address.
+
+For DNS hostnames, the lookup used for the actual connection validates
+**every** resolved A/AAAA address and pins one vetted address to the
+socket. No later unchecked DNS lookup is permitted during connection.
+Redirect destinations are revalidated on each hop, including fresh DNS
+validation. HTTP validators do not carry across redirects. Response sizes,
+redirect counts and a total request timeout are bounded.
+
+The fetcher accepts `signal: AbortSignal` to cancel active requests and
+the entire redirect chain. This is a conservative defense, not a claim
+that arbitrary public websites are trustworthy or safe to process.
+Public-IP services with access to internal systems, DNS infrastructure
+that lies about address reachability, and application-layer redirects
+inside JavaScript are outside these low-level checks. Keep the API
+authenticated and do not expose unrestricted crawling.
+
+Address classifications follow IANA special-purpose registries:
+- IPv4: https://www.iana.org/assignments/iana-ipv4-special-registry
+- IPv6: https://www.iana.org/assignments/iana-ipv6-special-registry
