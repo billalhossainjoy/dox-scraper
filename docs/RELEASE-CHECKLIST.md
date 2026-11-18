@@ -53,11 +53,14 @@ until the pin is refreshed. Never fabricate a lockfile or digest.
 - [ ] Place it only in the untracked local `.env` (permissions `0600`)
 - [ ] Set `NODE_ENV=production` (already configured in Compose)
 - [ ] Run `docker compose config --quiet`
+- [ ] Run `node scripts/pi-preflight.mjs` on the actual Pi and resolve
+      every FAIL before enabling the external hostname
 - [ ] Run `docker compose up --build -d` and `docker compose ps`
 - [ ] Verify `curl --fail http://127.0.0.1:3000/health`
 - [ ] Verify no Raspberry Pi LAN/public interface is listening on
       port 3000 (the Compose binding is `127.0.0.1` only)
 - [ ] Check API/worker memory, CPU, logs and health for sustained use
+      (preflight checks configured caps and current health, not load performance)
 - [ ] Run allowed, low-volume test scrapes against a site you
       control, not arbitrary third parties
 
