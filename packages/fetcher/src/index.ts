@@ -10,6 +10,9 @@ export interface FetchPageOptions {
   maxBytes?: number;
   maxRedirects?: number;
   userAgent?: string;
+  /** Conditional request validators, normally supplied by the response cache. */
+  ifNoneMatch?: string;
+  ifModifiedSince?: string;
 }
 
 export interface FetchPageResult {
@@ -114,6 +117,8 @@ async function requestOnce(target: URL, options: Required<FetchPageOptions>): Pr
           "user-agent": options.userAgent,
           accept: "text/html,application/xhtml+xml;q=0.9,text/plain;q=0.8",
           "accept-encoding": "identity",
+          ...(options.ifNoneMatch ? { "if-none-match": options.ifNoneMatch } : {}),
+          ...(options.ifModifiedSince ? { "if-modified-since": options.ifModifiedSince } : {}),
         },
         // Validate the addresses immediately before the socket connects.
         // In particular, do not trust a DNS preflight check followed by a second lookup.
@@ -177,6 +182,8 @@ export async function fetchPage(input: string, config: FetchPageOptions = {}): P
     maxBytes: config.maxBytes ?? 2 * 1024 * 1024,
     maxRedirects: config.maxRedirects ?? 5,
     userAgent: config.userAgent ?? "DoxScraper/0.1 (+https://github.com/billalhossainjoy/dox-scraper)",
+    ifNoneMatch: config.ifNoneMatch ?? "",
+    ifModifiedSince: config.ifModifiedSince ?? "",
   };
   if (!Number.isInteger(options.timeoutMs) || options.timeoutMs < 1 || options.timeoutMs > 120_000 ||
       !Number.isInteger(options.maxBytes) || options.maxBytes < 1 || options.maxBytes > 20 * 1024 * 1024 ||
@@ -184,10 +191,23 @@ export async function fetchPage(input: string, config: FetchPageOptions = {}): P
     throw new FetchError("INVALID_URL", "Invalid timeout, response size, or redirect limit");
   }
 
+  // Validators can originate in untrusted server responses: never allow header injection.
+  for (const value of [options.ifNoneMatch, options.ifModifiedSince]) {
+    if (value.length > 1024 || /[\\r\\n\\x00]/.test(value)) {
+      throw new FetchError("INVALID_URL", "Invalid conditional request header");
+    }
+  }
+
   const requestedUrl = validateTargetUrl(input).href;
   let current = validateTargetUrl(input);
   for (let redirectCount = 0; redirectCount <= options.maxRedirects; redirectCount++) {
-    const response = await requestOnce(current, options);
+    // Never forward a validator to a different host after following a redirect.
+    const requestOptions = redirectCount === 0 ? options : {
+      ...options,
+      ifNoneMatch: "",
+      ifModifiedSince: "",
+    };
+    const response = await requestOnce(current, requestOptions);
     if ([301, 302, 303, 307, 308].includes(response.statusCode)) {
       const location = response.headers.location;
       if (!location) {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Readable } from "node:stream";
-import { FetchError, isPublicIp, readLimitedStream, resolveRedirect, validateTargetUrl } from "./index.js";
+import { FetchError, fetchPage, isPublicIp, readLimitedStream, resolveRedirect, validateTargetUrl } from "./index.js";
 
 describe("public address policy", () => {
   it.each(["127.0.0.1", "10.0.0.1", "192.168.1.5", "169.254.169.254", "::1", "fc00::1", "::ffff:127.0.0.1", "2001:db8::1"])(
@@ -42,5 +42,16 @@ describe("response byte limit", () => {
     await expect(readLimitedStream(Readable.from([Buffer.from("hello!")]), 5)).rejects.toMatchObject({
       code: "RESPONSE_TOO_LARGE",
     });
+  });
+});
+
+describe("conditional HTTP validators", () => {
+  it("rejects line breaks and nulls before making any HTTP request", async () => {
+    for (const header of ["xyz\r\nX-Evil: true", "xyz\nfoo", "xyz\u0000bar"]) {
+      await expect(fetchPage("https://example.com/", { ifNoneMatch: header }))
+        .rejects.toMatchObject({ code: "INVALID_URL" });
+      await expect(fetchPage("https://example.com/", { ifModifiedSince: header }))
+        .rejects.toMatchObject({ code: "INVALID_URL" });
+    }
   });
 });

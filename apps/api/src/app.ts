@@ -2,7 +2,8 @@ import { timingSafeEqual } from "node:crypto";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { z } from "zod";
-import { FetchError } from "@dox-scraper/fetcher";
+import { FetchError, fetchPage } from "@dox-scraper/fetcher";
+import { ResponseCache } from "@dox-scraper/cache";
 import { openApiDocument } from "./openapi.js";
 import { scrapePage, ScrapeServiceError } from "./scrape.js";
 
@@ -33,7 +34,16 @@ export interface AppOptions {
 export function createApp(options: AppOptions = {}) {
   const app = new Hono();
   const secret = options.apiKey ?? "";
-  const scrape = options.scrape ?? scrapePage;
+  // One bounded in-memory cache per API instance; no cookies or credentials
+  // are forwarded by the HTTP fetcher. Tests can inject a scrape service.
+  const cache = new ResponseCache({
+    ttlMs: 300_000,
+    maxEntries: 100,
+    maxTotalBytes: 32 * 1024 * 1024,
+    fetcher: (url, requestOptions) => fetchPage(url, requestOptions),
+  });
+  const scrape = options.scrape ?? ((url: string, requestOptions: Parameters<typeof scrapePage>[1]) =>
+    scrapePage(url, requestOptions, (pageUrl, pageOptions) => cache.fetch(pageUrl, pageOptions)));
   const MAX_CONCURRENT_SCRAPES = 2;
   let activeScrapes = 0;
 

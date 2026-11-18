@@ -108,3 +108,12 @@ Respect each target website's terms and access restrictions.
 ## License
 
 License to be selected before public distribution.
+
+## Response caching
+
+The `/v1/scrape` API caches public HTML in a bounded per-process LRU:
+5-minute default freshness, 100 entries, 32 MiB total. It supports ETag
+and Last-Modified conditional GETs and returns SHA-256 fingerprint metadata
+in `data.cache`. Private/no-store responses are never cached.
+
+See [docs/CACHE.md](docs/CACHE.md) for limits and policy.
