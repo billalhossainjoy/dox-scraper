@@ -93,14 +93,15 @@ export function extractPage(html: string, source: string): ExtractedPage {
 
   $(NOISE_ELEMENTS.join(",")).remove();
 
-  let content = $("body").first();
+  let contentSelector = "body";
   for (const selector of CONTENT_SELECTORS) {
     const element = $(selector).first();
     if (element.length > 0 && cleanInlineText(element.text()).length > 0) {
-      content = element;
+      contentSelector = selector;
       break;
     }
   }
+  const content = $(contentSelector).first();
 
   const headings: ExtractedHeading[] = content
     .find("h1,h2,h3,h4,h5,h6")
