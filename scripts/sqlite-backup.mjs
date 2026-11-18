@@ -1,9 +1,9 @@
+/* global process, console */
 import { createHash } from "node:crypto";
 import {
   chmodSync, copyFileSync, createReadStream, existsSync, linkSync,
   lstatSync, mkdtempSync, realpathSync, rmSync, statSync,
 } from "node:fs";
-import { tmpdir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { backup, DatabaseSync } from "node:sqlite";
