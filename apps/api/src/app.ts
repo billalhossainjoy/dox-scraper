@@ -60,7 +60,7 @@ export function createApp(options: AppOptions = {}) {
   const allowedOrigins = options.browserAllowedOrigins ??
     (process.env.DOX_BROWSER_ALLOWED_ORIGINS ?? "").split(",").map((item) => item.trim()).filter(Boolean);
   const renderer = new BrowserRenderer({
-    executablePath: options.browserExecutablePath ?? process.env.DOX_CHROMIUM_PATH,
+    executablePath: options.browserExecutablePath ?? process.env.DOX_CHROMIUM_PATH ?? "",
   });
   const browserRender = options.browserRender ?? ((input: BrowserRenderInput) => renderer.render(input));
 
