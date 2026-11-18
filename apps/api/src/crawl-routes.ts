@@ -2,6 +2,7 @@ import { Hono, type MiddlewareHandler } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { z } from "zod";
 import { SqliteCrawlStore } from "@dox-scraper/storage";
+import { FetchError } from "@dox-scraper/fetcher";
 import { tokenMatches } from "./auth.js";
 import {
   CrawlApiError,
@@ -71,6 +72,13 @@ export function registerCrawlRoutes(app: Hono, options: CrawlRoutesOptions): voi
   app.use("/v1/crawl/*", authenticate);
 
   const errorResponse = (error: unknown) => {
+    if (error instanceof FetchError) {
+      return {
+        status: 400 as const,
+        code: error.code,
+        message: error.message,
+      };
+    }
     if (error instanceof CrawlApiError) {
       return { status: error.status, code: error.code, message: error.message };
     }
