@@ -39,9 +39,9 @@ export class ScrapeServiceError extends Error {
 /** Single-page scraping orchestration; no crawling or browser fallback yet. */
 export async function scrapePage(url: string, options: ScrapeOptions = {}): Promise<ScrapeResult> {
   const response = await fetchPage(url, {
-    timeoutMs: options.timeoutMs,
-    maxBytes: options.maxBytes,
-    maxRedirects: options.maxRedirects,
+    ...(options.timeoutMs !== undefined ? { timeoutMs: options.timeoutMs } : {}),
+    ...(options.maxBytes !== undefined ? { maxBytes: options.maxBytes } : {}),
+    ...(options.maxRedirects !== undefined ? { maxRedirects: options.maxRedirects } : {}),
   });
 
   if (response.statusCode === 429) {
@@ -72,7 +72,7 @@ export async function scrapePage(url: string, options: ScrapeOptions = {}): Prom
   const extracted = extractPage(response.html, response.finalUrl);
   const markdown = htmlToMarkdown(extracted.contentHtml, {
     baseUrl: response.finalUrl,
-    maxCharacters: options.maxCharacters,
+    ...(options.maxCharacters !== undefined ? { maxCharacters: options.maxCharacters } : {}),
   });
 
   return {
