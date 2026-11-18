@@ -46,6 +46,7 @@ describe("ResponseCache", () => {
   it("uses If-None-Match to revalidate after expiration without downloading HTML again", async () => {
     let now = 1700000000000;
     const fetcher = vi.fn(async (_url: string, options?: FetchPageOptions) => {
+      expect(_url).toBe(URL);
       if (options?.ifNoneMatch === '"abc"') return response("", { etag: '"abc"' }, 304);
       return response("original body", { etag: '"abc"' });
     });
@@ -66,11 +67,12 @@ describe("ResponseCache", () => {
   it("supports If-Modified-Since when no ETag exists", async () => {
     let now = 1700000000000;
     const modified = "Wed, 18 Nov 2026 12:00:00 GMT";
-    const fetcher = vi.fn(async (_url: string, opts?: FetchPageOptions) =>
-      opts?.ifModifiedSince
+    const fetcher = vi.fn(async (target: string, opts?: FetchPageOptions) => {
+      expect(target).toBe(URL);
+      return opts?.ifModifiedSince
         ? response("", { "last-modified": modified }, 304)
-        : response("old", { "last-modified": modified }),
-    );
+        : response("old", { "last-modified": modified });
+    });
     const cache = new ResponseCache({ fetcher, now: () => now, ttlMs: 1000 });
     await cache.fetch(URL);
     now += 1001;
