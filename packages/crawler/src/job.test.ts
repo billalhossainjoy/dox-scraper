@@ -20,8 +20,8 @@ function fixtureOptions(
   pages: Record<string, FixturePage>,
   overrides: Partial<CrawlJobOptions> = {},
 ) {
-  const canFetch = vi.fn(async (_url: string, _signal: AbortSignal) => true);
-  const acquirePermit = vi.fn(async (_url: string, _signal: AbortSignal) => {});
+  const canFetch = vi.fn(async () => true);
+  const acquirePermit = vi.fn(async () => {});
   const loadPage = vi.fn(async (url: string, context: CrawlRequestContext): Promise<CrawlLoadedPage> => {
     expect(context.maxRedirects).toBe(0);
     expect(context.maxBytes).toBeLessThanOrEqual(2 * 1024 * 1024);
@@ -190,7 +190,7 @@ describe("CrawlJob lifecycle and bounded discovery", () => {
   it("supports cancellation while a fetch is running", async () => {
     let notifyStarted!: () => void;
     const started = new Promise<void>((resolve) => { notifyStarted = resolve; });
-    const loadPage = vi.fn(async (_url: string, _context: CrawlRequestContext) => {
+    const loadPage = vi.fn(async () => {
       notifyStarted();
       return new Promise<CrawlLoadedPage>(() => {
         // A deliberately uncooperative loader: the job must still stop waiting
@@ -226,7 +226,7 @@ describe("CrawlJob lifecycle and bounded discovery", () => {
   });
 
   it("forwards successful pages to onPage without retaining HTML", async () => {
-    const onPage = vi.fn(async (_page: CrawlLoadedPage & { url: string; depth: number }) => {});
+    const onPage = vi.fn(async () => {});
     const { options } = fixtureOptions({
       [SEED]: { html: "<h1>Example</h1><p>Sensitive fixture content</p>" },
     }, { onPage });
