@@ -17,8 +17,15 @@ if [[ "$(grep -Fc 'FROM ${NODE_IMAGE} AS ' "$dockerfile")" != "2" ]]; then
   exit 1
 fi
 
-echo "Inspecting pinned Node image manifest index (not mutable tag): $ref"
-manifest="$(docker buildx imagetools inspect --raw "$ref")"
+expected="${ref##*@}"
+registry_ref="docker.io/library/node@$expected"
+echo "Inspecting pinned Node image manifest index: $registry_ref"
+# Use the registry's digest-only syntax for inspection; the Dockerfile
+# retains a human-readable tag and the same immutable digest.
+if ! manifest="$(docker buildx imagetools inspect --raw "$registry_ref" 2>&1)"; then
+  echo "Unable to resolve pinned Node manifest index from registry: $manifest" >&2
+  exit 1
+fi
 
 if ! jq -e '
   (.mediaType == "application/vnd.oci.image.index.v1+json" or
@@ -30,8 +37,7 @@ if ! jq -e '
   exit 1
 fi
 
-actual="$(docker buildx imagetools inspect "$ref" | awk '/^Digest:/ { print $2; exit }')"
-expected="${ref##*@}"
+actual="$(docker buildx imagetools inspect "$registry_ref" | awk '/^Digest:/ { print $2; exit }')"
 if [[ "$actual" != "$expected" ]]; then
   echo "Registry resolved digest does not match the Dockerfile digest" >&2
   exit 1
