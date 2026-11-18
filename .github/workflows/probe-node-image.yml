@@ -13,7 +13,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ref="docker.io/library/node:24-bookworm-slim"
+          ref="docker.io/library/node:24-trixie-slim"
           manifest="$(docker buildx imagetools inspect --raw "$ref")"
           printf '%s' "$manifest" | jq -e '
             [.manifests[] | select(.platform.os == "linux") | .platform.architecture]
