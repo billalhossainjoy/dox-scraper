@@ -90,7 +90,7 @@ describe("scrape route security and resource bounds", () => {
     expect(scrape).toHaveBeenCalledTimes(3);
   });
 
-  it("rejects an unauthenticated oversized payload without invoking scraping", async () => {
+  it("rejects an unauthenticated request before invoking scraping", async () => {
     const scrape = vi.fn(async () => sample);
     const app = createApp({ apiKey: KEY, scrape });
     const response = await app.request("/v1/scrape", {
