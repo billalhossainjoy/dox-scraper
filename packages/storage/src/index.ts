@@ -245,6 +245,80 @@ export class SqliteCrawlStore {
     }
   }
 
+  /** Ownership is tied to a SHA-256 digest of the configured API key. */
+  assignOwner(jobId: string, ownerDigest: string): void {
+    if (!/^[a-f0-9]{64}$/.test(ownerDigest)) throw new TypeError("Invalid owner digest");
+    this.db.prepare(
+      "INSERT INTO crawl_job_owners(job_id,owner_digest) VALUES(?,?) " +
+      "ON CONFLICT(job_id) DO NOTHING",
+    ).run(jobId, ownerDigest);
+    const stored = this.db.prepare(
+      "SELECT owner_digest FROM crawl_job_owners WHERE job_id=?",
+    ).get(jobId) as unknown as { owner_digest: string } | undefined;
+    if (!stored || stored.owner_digest !== ownerDigest) {
+      throw new Error("Crawl job is already owned by another credential");
+    }
+  }
+
+  ownsJob(jobId: string, ownerDigest: string): boolean {
+    const row = this.db.prepare(
+      "SELECT 1 AS owned FROM crawl_job_owners WHERE job_id=? AND owner_digest=?",
+    ).get(jobId, ownerDigest);
+    return row !== undefined;
+  }
+
+  getOwnedJob(jobId: string, ownerDigest: string): CrawlSnapshot | null {
+    return this.ownsJob(jobId, ownerDigest) ? this.getJob(jobId) : null;
+  }
+
+  listPageResults(jobId: string, limit = 20, offset = 0): {
+    results: StoredPageResult[];
+    total: number;
+    limit: number;
+    offset: number;
+  } {
+    integer(limit, "limit", 1, 50);
+    integer(offset, "offset", 0, 1_000_000);
+    const row = this.db.prepare(
+      "SELECT COUNT(*) AS total FROM page_results WHERE job_id=?",
+    ).get(jobId) as unknown as { total: number };
+    const rows = this.db.prepare(
+      "SELECT r.* FROM page_results r INNER JOIN crawl_pages p " +
+      "ON p.job_id=r.job_id AND p.url=r.url " +
+      "WHERE r.job_id=? ORDER BY p.ordinal ASC LIMIT ? OFFSET ?",
+    ).all(jobId, limit, offset) as unknown as ResultRow[];
+    return {
+      results: rows.map((result) => ({
+        jobId: result.job_id,
+        url: result.url,
+        markdown: result.markdown,
+        contentText: result.content_text,
+        metadata: JSON.parse(result.metadata_json) as Record<string, unknown>,
+        markdownSha256: result.markdown_sha256,
+        contentBytes: result.content_bytes,
+        scrapedAt: result.scraped_at,
+      })),
+      total: row.total, limit, offset,
+    };
+  }
+
+  /** Terminal failure for unexpected orchestration errors. */
+  failJob(jobId: string, reason: string): void {
+    const existing = this.getJob(jobId);
+    if (!existing || ["completed", "failed", "cancelled"].includes(existing.state)) return;
+    const pages = existing.pages.map((page) =>
+      page.state === "active" || page.state === "queued"
+        ? { ...page, state: "failed" as const, error: reason.slice(0, 240) }
+        : page,
+    );
+    this.saveSnapshot({
+      ...existing, pages, state: "failed", error: reason.slice(0, 240),
+      finishedAt: new Date().toISOString(),
+      queued: 0, active: 0,
+      failed: pages.filter((page) => page.state === "failed").length,
+    });
+  }
+
   getJob(id: string): CrawlSnapshot | null {
     const job = this.db.prepare("SELECT * FROM crawl_jobs WHERE id=?")
       .get(id) as unknown as JobRow | undefined;
