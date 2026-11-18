@@ -44,7 +44,7 @@ function preserveSvgDescriptions($: ReturnType<typeof load>): void {
     let label = "";
     for (const value of descriptions) {
       const candidate = (value ?? "")
-        .replace(/[\u0000-\u001f\u007f\u202a-\u202e\u2066-\u2069]/g, " ")
+        .replace(/[\p{Cc}\u202a-\u202e\u2066-\u2069]/gu, " ")
         .replace(/\s+/g, " ").trim();
       if (candidate) {
         label = Array.from(candidate).slice(0, MAX_SVG_DESCRIPTION_CHARACTERS).join("");
