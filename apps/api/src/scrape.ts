@@ -3,10 +3,10 @@ import { extractPage, type ExtractedHeading, type ExtractedLink } from "@dox-scr
 import { htmlToMarkdown } from "@dox-scraper/markdown";
 
 export interface ScrapeOptions {
-  timeoutMs?: number;
-  maxBytes?: number;
-  maxRedirects?: number;
-  maxCharacters?: number;
+  timeoutMs?: number | undefined;
+  maxBytes?: number | undefined;
+  maxRedirects?: number | undefined;
+  maxCharacters?: number | undefined;
 }
 
 export interface ScrapeResult {
