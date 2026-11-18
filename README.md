@@ -117,3 +117,11 @@ and Last-Modified conditional GETs and returns SHA-256 fingerprint metadata
 in `data.cache`. Private/no-store responses are never cached.
 
 See [docs/CACHE.md](docs/CACHE.md) for limits and policy.
+
+## SSRF and safe network destinations
+
+The HTTP fetcher rejects local, private and special-purpose IPv4/IPv6
+addresses (including cloud metadata endpoints), validates DNS answers at
+connection time and checks each redirect destination. It supports abort
+signals and an overall timeout across redirects. For crawler safety
+details see [docs/CRAWLING.md](docs/CRAWLING.md).
