@@ -118,7 +118,7 @@ jobs:
       - name: Report categorized CRITICAL and fixable HIGH advisory details
         run: node scripts/triage-image-vulnerabilities.mjs trivy-api.json trivy-worker.json
 
-      - name: Gate actionable CRITICAL container vulnerabilities
+      - name: Gate fixable HIGH and CRITICAL container vulnerabilities
         run: node scripts/check-container-vulnerabilities.mjs trivy-api.json trivy-worker.json
 
       - name: Reject unsafe production settings before opening the API port
