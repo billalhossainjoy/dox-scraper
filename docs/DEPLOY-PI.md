@@ -286,3 +286,17 @@ temporary API keys for local/offline testing.
 
 Use [RELEASE-CHECKLIST.md](RELEASE-CHECKLIST.md) before enabling
 remote access.
+
+## ARM64 CI and safe online SQLite backups
+
+The repository additionally tests real ARM64 images under QEMU in
+GitHub Actions, including the API, maintenance worker and `node:sqlite`.
+It does **not** substitute for a native Pi hardware test.
+
+A new backup command can take a consistent SQLite snapshot without
+stopping the running API, and validates an isolated restored copy
+before publishing the output. It refuses to overwrite previous backups.
+
+See [ARM64-BACKUP.md](ARM64-BACKUP.md) for the exact Pi commands,
+expected disk requirements, safety guards and remaining restore
+rehearsal steps.
