@@ -18,7 +18,9 @@ Pi, Cloudflare account and the websites being crawled.
 - [x] Verify redacted logs never include query strings or secret headers
 - [x] Keep optional Chromium rendering disabled by default
 
-A green CI run confirms these synthetic and container-level checks
+An emulated ARM64 container smoke test also verifies that both images
+start and run Node.js/SQLite under QEMU. Physical Pi hardware remains
+unverified. A green CI run confirms these synthetic and container-level checks
 but **does not** mean Cloudflare, the Raspberry Pi or a real website
 has been tested.
 
@@ -82,8 +84,10 @@ until the pin is refreshed. Never fabricate a lockfile or digest.
 
 - [ ] Make a cold backup of the SQLite named volume, including
       WAL/SHM sidecars where present
-- [ ] Verify the backup can restore into a **separate** test volume
-      without overwriting the only live copy
+- [ ] Verify a **real Pi backup** can restore into a separate test
+      volume without overwriting the only live copy
+- [x] Exercise WAL-consistent backup and independent restore on
+      disposable SQLite databases in CI
 - [ ] Test a restart with an incomplete job and inspect
       `PROCESS_RESTARTED` handling
 - [ ] Confirm a restricted `robots.txt` path is never fetched,
