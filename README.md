@@ -217,5 +217,28 @@ browser execution disabled.
 
 GitHub Docker CI tests safe startup *and* rejects weak credentials.
 The Raspberry Pi hardware test, live Cloudflare Access test,
-SSD backup/restore drill and dependency lockfile are still separate
-release gates. Follow [docs/RELEASE-CHECKLIST.md](docs/RELEASE-CHECKLIST.md).
+SSD backup/restore drill and Docker base-image digest pin remain
+separate release gates. Follow [docs/RELEASE-CHECKLIST.md](docs/RELEASE-CHECKLIST.md).
+
+## Reproducible pnpm dependency installs
+
+The repository commits `pnpm-lock.yaml`, generated from the actual
+workspace with pnpm **12.18.0**. CI and Docker use
+`pnpm install --frozen-lockfile` so dependency resolution cannot drift
+silently when manifests change.
+
+When intentionally adding/updating dependencies, run:
+
+```bash
+pnpm install
+pnpm build
+pnpm typecheck
+pnpm lint
+pnpm test
+git add package.json apps packages pnpm-lock.yaml
+```
+
+Review the lockfile changes as part of the PR. Never edit integrity
+hashes manually. Frozen installs pin npm packages, but the
+`node:24-bookworm-slim` Docker base image tag still requires a
+separately audited immutable digest for complete image reproducibility.
