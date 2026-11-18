@@ -5,7 +5,7 @@ import { pathToFileURL } from "node:url";
 
 const VALID_ID = /^(?:CVE-\d{4}-\d{4,}|GHSA-[A-Za-z0-9-]{9,})$/;
 const VALID_PACKAGE = /^[A-Za-z0-9@._+/-]{1,90}$/;
-const VALID_VERSION = /^[A-Za-z0-9:._+~@/-]{1,90}$/;
+const VALID_VERSION = /^[A-Za-z0-9:._+~^><=|,* -]{1,100}$/;
 const MAX_ROWS = 24;
 
 function safe(value, regex) {
