@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto";
 import { createRequire } from "node:module";
 import {
-  CrawlJob,
   DomainRateLimiter,
+  type CrawlJob,
   type CrawlLoadedPage,
   type CrawlRequestContext,
   type CrawlSnapshot,
