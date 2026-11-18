@@ -15,7 +15,8 @@
     "@dox-scraper/markdown": "workspace:*",
     "@hono/node-server": "^1.19.6",
     "hono": "^4.10.6",
-    "zod": "^4.1.12"
+    "zod": "^4.1.12",
+    "@dox-scraper/cache": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^24.10.1",
