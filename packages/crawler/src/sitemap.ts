@@ -1,6 +1,6 @@
 import { load } from "cheerio";
 import { fetchPage, validateTargetUrl, type FetchPageResult } from "@dox-scraper/fetcher";
-import { normalizeCrawlUrl } from "./index.js";
+import { normalizeCrawlUrl } from "./links.js";
 
 export interface SitemapDiscoveryOptions {
   /** Maximum XML sitemap documents to request; defaults to 10, maximum 50. */
