@@ -49,7 +49,7 @@ Website crawling, SQLite persistence, Playwright, MCP, and production deployment
 
 ## Local development
 
-Requirements: Node.js 24 and pnpm 12.18.0.
+Requirements: Node.js 24.15+ and pnpm 12.18.0.
 
 ```bash
 pnpm install
@@ -137,3 +137,18 @@ a **network-isolated** worker/container before enabling it.
 
 See [docs/BROWSER.md](docs/BROWSER.md) for configuration, limitations,
 security boundaries, and optional hardware smoke tests.
+
+## Durable crawl storage
+
+The `@dox-scraper/storage` workspace package persists crawl jobs,
+discovered URLs, extracted Markdown and optional public HTML cache
+entries in **SQLite**, using Node.js 24's built-in driver. It includes
+versioned migrations, WAL mode, size limits and restart recovery.
+
+The `createPersistedCrawlJob()` adapter checkpoints a job as pages
+complete. REST endpoints for submitting and viewing crawl jobs are a
+later milestone; the existing `/v1/scrape` endpoint still uses its
+in-memory response cache.
+
+See [docs/STORAGE.md](docs/STORAGE.md) for usage, data model, and backup
+and security considerations.
