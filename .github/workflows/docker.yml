@@ -27,18 +27,46 @@ jobs:
     runs-on: ubuntu-latest
     env:
       # Test-only value; no user/production secrets are used by CI.
-      DOX_SCRAPER_API_KEY: ci-only-not-a-production-credential
       DOX_ENABLE_CRAWL_API: "false"
       DOX_PUBLIC_HOSTNAME: scraper.ci.example.test
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Generate an ephemeral CI-only API bearer key
+        shell: bash
+        run: |
+          set -euo pipefail
+          token="$(openssl rand -hex 32)"
+          echo "::add-mask::$token"
+          echo "DOX_SCRAPER_API_KEY=$token" >> "$GITHUB_ENV"
+
       - name: Validate Compose configuration
         run: docker compose -f compose.yaml config --quiet
 
       - name: Build API and worker images
         run: docker compose -f compose.yaml build api worker
+
+      - name: Reject unsafe production settings before opening the API port
+        shell: bash
+        run: |
+          set -euo pipefail
+          for unsafe in "replace-with-a-long-random-secret" "weak-key" "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"; do
+            if docker compose run --rm --no-deps -e "DOX_SCRAPER_API_KEY=$unsafe" api >/tmp/dox-preflight.log 2>&1; then
+              echo "ERROR: production API started with an unsafe bearer credential"
+              exit 1
+            fi
+            grep -q "DOX_SCRAPER_API_KEY" /tmp/dox-preflight.log
+            if grep -Fq "$unsafe" /tmp/dox-preflight.log; then
+              echo "ERROR: preflight leaked the rejected credential"
+              exit 1
+            fi
+          done
+          if docker compose run --rm --no-deps -e DOX_ENABLE_CRAWL_API=yes api >/tmp/dox-preflight.log 2>&1; then
+            echo "ERROR: production API started with malformed crawl feature flag"
+            exit 1
+          fi
+          grep -q "DOX_ENABLE_CRAWL_API" /tmp/dox-preflight.log
 
       - name: Start API and worker
         run: docker compose -f compose.yaml up --detach --no-build

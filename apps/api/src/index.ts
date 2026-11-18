@@ -1,5 +1,10 @@
 import { serve } from "@hono/node-server";
-import app from "./app.js";
+import { assertProductionConfiguration } from "./production-config.js";
+
+// Validate before importing the application: enabling crawl jobs can otherwise
+// open/migrate SQLite or run restart recovery as a module side effect.
+assertProductionConfiguration(process.env);
+const { default: app } = await import("./app.js");
 
 const port = Number(process.env.PORT ?? 3000);
 const hostname = process.env.HOST ?? "127.0.0.1";

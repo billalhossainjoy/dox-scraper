@@ -286,3 +286,17 @@ hardware test.
 **Only after both manual Cloudflare settings and a successful
 live verification should you consider the remote endpoint
 ready for permitted traffic.**
+
+## Mandatory production startup preflight
+
+Since Issue #21, the API rejects demo/placeholder/short API bearer
+keys **before** listening in production. The `.env.example`
+credential is intentionally invalid for Docker startup. Generate
+a unique bearer on the Pi with `openssl rand -hex 32` and do not
+reuse the separate Cloudflare Access service token.
+
+The deployment also rejects malformed crawler flags and attempts
+to enable Chromium in the non-isolated Compose API container.
+If startup fails, inspect `docker compose logs api` for **the
+variable name** causing the failure; credentials are never printed
+by the preflight validation.
