@@ -47,9 +47,63 @@ Website crawling, SQLite persistence, Playwright, MCP, and production deployment
 - Block loopback, private, link-local, reserved, and cloud metadata destinations.
 - Keep credentials, databases, and worker ports private.
 
-## Development
+## Local development
 
-The repository is being initialized. Follow the GitHub issues in milestone order, starting with the foundation and single-page scraper MVP.
+Requirements: Node.js 24 and pnpm 12.18.0.
+
+```bash
+pnpm install
+cp .env.example .env
+# Edit .env and replace DOX_SCRAPER_API_KEY with a securely generated key.
+# For example, generate a value using: openssl rand -hex 32
+pnpm dev
+```
+
+The development command builds the internal packages before launching the Hono API.
+The local server listens on `127.0.0.1:3000` by default.
+
+### Scrape a public HTML page
+
+```bash
+curl -sS http://127.0.0.1:3000/v1/scrape \
+  -H "Authorization: Bearer YOUR_KEY_FROM_DOT_ENV" \
+  -H "Content-Type: application/json" \
+  --data '{"url":"https://example.com","options":{"timeoutMs":15000,"maxBytes":1048576,"maxRedirects":3,"maxCharacters":50000}}'
+```
+
+The endpoint returns `success: true` with the requested URL, final URL,
+HTTP status, page title, description, canonical URL, language, headings, links,
+plain text, Markdown, and fetch timestamp. Failure responses contain `error.code`
+and `error.message`.
+
+Useful endpoints:
+
+- `GET /health` — health status, no API key
+- `GET /openapi.json` — OpenAPI specification, no API key
+- `POST /v1/scrape` — authenticated single-page scraping
+
+### Quality checks
+
+```bash
+pnpm build
+pnpm typecheck
+pnpm lint
+pnpm test
+```
+
+### Security and limits
+
+The API requires `DOX_SCRAPER_API_KEY` and permits at most two simultaneous
+scrape requests per API process. Request bodies are limited to 16 KiB;
+individual target responses are limited to at most 2 MiB. The fetcher blocks
+local/private/reserved IP destinations and validates each redirect.
+Only HTML and XHTML responses are converted to Markdown.
+
+**This is not yet a public crawler service.** The MVP does not implement
+robots.txt enforcement, per-domain pacing, persistent rate limiting, caching,
+or browser rendering. Keep the API bound to localhost and do not expose
+it publicly through Cloudflare Tunnel until those controls are added.
+Respect each target website's terms and access restrictions.
 
 ## License
 
