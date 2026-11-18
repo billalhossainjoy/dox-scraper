@@ -57,3 +57,69 @@ per request, and 1 MiB per sitemap body. Allowed maxima are 50 documents,
 5,000 URLs, 30 seconds and 2 MiB. This operation still needs robots.txt
 **Allow/Disallow enforcement**, per-domain pacing and a real crawl queue
 before it should power an externally accessible crawl endpoint.
+
+## Bounded crawl jobs — Issue #11
+
+`CrawlJob` is an **in-memory, sequential breadth-first crawl engine**. It
+tracks per-URL states (`queued`, `active`, `completed`, `failed`,
+`skipped`, `cancelled`), totals, start/finish timestamps and job lifecycle.
+Results are available using `job.snapshot()`. A job runs only when you call
+`job.start()`, and you can stop it using `job.cancel()`.
+
+```ts
+import { CrawlJob } from "@dox-scraper/crawler";
+import { fetchPage } from "@dox-scraper/fetcher";
+
+// Example wiring for a future internal service. The two policy functions
+// MUST be implemented first: never return true unconditionally in production.
+const job = new CrawlJob({
+  seedUrl: "https://example.com",
+  maxPages: 10,
+  maxDepth: 2,
+  maxDiscovered: 100,
+  canFetch: checkRobotsAndSitePermission,
+  acquirePermit: waitForOriginRateLimit,
+  loadPage: async (url, limits) => {
+    const response = await fetchPage(url, {
+      timeoutMs: limits.timeoutMs,
+      maxBytes: limits.maxBytes,
+      maxRedirects: limits.maxRedirects, // zero; do not auto-follow redirects
+    });
+    return {
+      finalUrl: response.finalUrl,
+      statusCode: response.statusCode,
+      contentType: response.contentType,
+      html: response.html,
+    };
+  },
+  onPage: async (page) => {
+    // Store or extract page.html in a future persistence layer.
+  },
+});
+const result = await job.start();
+console.log(result.state, result.pages);
+```
+
+The example above is an **integration sketch**, not a copy-and-run example:
+`checkRobotsAndSitePermission` and `waitForOriginRateLimit` are intentionally
+not implemented yet. Their policies must be supplied and tested before any
+real multi-page crawling. There is no public crawling endpoint.
+
+Built-in bounds: 1–100 page attempts (default 20), 0–8 crawl depth
+(default 2), 1–5,000 discovered URL records (default 500), 1 KiB–2 MiB
+per returned HTML page (default 1 MiB), 1–30 seconds per request
+(default 15 seconds). Jobs run one page at a time to limit resource load.
+
+Each page must first pass `canFetch` (robots/site permissions) and
+`acquirePermit` (origin rate pacing). Policy exceptions stop the job.
+The loader must be SSRF-safe, must honor `AbortSignal`, and must disable
+redirect-following; the job detects unexpected redirect results and stops.
+HTTP 429 and 503 stop the job with no retries. Links are deduplicated,
+must remain in the exact seed origin and never exceed the depth/page
+discovery budgets. Page HTML is passed to `onPage` but is **not stored**
+in job snapshots. Job state is volatile (not persisted after restarts).
+
+Before using this with real sites, implement and test robots.txt
+Allow/Disallow policy, request pacing and any site-specific restrictions.
+Issue #12 handles per-origin rate limiting; persistence and API job endpoints
+are later roadmap tasks.
