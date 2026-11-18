@@ -24,7 +24,14 @@ ENV NODE_ENV=production
 WORKDIR /app
 
 # Provide an owned directory before Docker initializes the named volume.
-RUN mkdir -p /data && chown node:node /data
+# npm is needed only in the build stage (to install pnpm).
+# Remove the globally bundled npm dependency tree from the final API/worker
+# runtime images; the application uses node directly and needs no npm CLI.
+# This also eliminates CVEs confined to npm's bundled undici/brace-expansion.
+RUN rm -rf /usr/local/lib/node_modules/npm \
+      /usr/local/bin/npm \
+      /usr/local/bin/npx \
+    && mkdir -p /data && chown node:node /data
 
 COPY --from=build --chown=node:node /app/package.json ./package.json
 COPY --from=build --chown=node:node /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
