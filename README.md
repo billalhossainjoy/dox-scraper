@@ -175,3 +175,23 @@ HTTPS REST endpoint via `DOX_MCP_API_URL`.
 
 See [docs/MCP.md](docs/MCP.md) for stdio client configuration, security
 and the scope of the four tools.
+
+## Raspberry Pi Docker Compose deployment
+
+A private `compose.yaml` builds the **API** and a **network-isolated
+SQLite maintenance worker** with Node.js 24. Both containers are
+ARM64/AMD64 compatible, have health checks, resource limits and a
+shared persistent named Docker volume. The API binds to the Pi
+host's loopback interface by default.
+
+```bash
+cp .env.example .env
+# Replace the example DOX_SCRAPER_API_KEY with a freshly generated secret.
+docker compose up --build -d
+curl http://127.0.0.1:3000/health
+```
+
+Crawl execution currently happens inside the API, **not** the maintenance
+worker. Browser rendering remains disabled. See
+[docs/DEPLOY-PI.md](docs/DEPLOY-PI.md) for full setup,
+SSD and backup guidance and security limitations.
