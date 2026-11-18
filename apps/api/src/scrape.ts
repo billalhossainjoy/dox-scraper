@@ -1,4 +1,5 @@
-import { fetchPage } from "@dox-scraper/fetcher";
+import { fetchPage, type FetchPageOptions, type FetchPageResult } from "@dox-scraper/fetcher";
+import type { CacheMetadata } from "@dox-scraper/cache";
 import { extractPage, type ExtractedHeading, type ExtractedLink } from "@dox-scraper/extractor";
 import { htmlToMarkdown } from "@dox-scraper/markdown";
 
@@ -23,6 +24,8 @@ export interface ScrapeResult {
   contentText: string;
   fetchedAt: string;
   redirectCount: number;
+  /** Populated by the cached API service, omitted for uncached direct calls. */
+  cache?: CacheMetadata;
 }
 
 export class ScrapeServiceError extends Error {
@@ -36,9 +39,18 @@ export class ScrapeServiceError extends Error {
   }
 }
 
+export type ScrapeFetcher = (
+  url: string,
+  options: FetchPageOptions,
+) => Promise<FetchPageResult & { cache?: CacheMetadata }>;
+
 /** Single-page scraping orchestration; no crawling or browser fallback yet. */
-export async function scrapePage(url: string, options: ScrapeOptions = {}): Promise<ScrapeResult> {
-  const response = await fetchPage(url, {
+export async function scrapePage(
+  url: string,
+  options: ScrapeOptions = {},
+  load: ScrapeFetcher = fetchPage,
+): Promise<ScrapeResult> {
+  const response = await load(url, {
     ...(options.timeoutMs !== undefined ? { timeoutMs: options.timeoutMs } : {}),
     ...(options.maxBytes !== undefined ? { maxBytes: options.maxBytes } : {}),
     ...(options.maxRedirects !== undefined ? { maxRedirects: options.maxRedirects } : {}),
@@ -89,5 +101,6 @@ export async function scrapePage(url: string, options: ScrapeOptions = {}): Prom
     contentText: extracted.contentText,
     fetchedAt: response.fetchedAt,
     redirectCount: response.redirectCount,
+    ...(response.cache ? { cache: response.cache } : {}),
   };
 }
