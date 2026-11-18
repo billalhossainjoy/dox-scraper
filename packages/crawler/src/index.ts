@@ -15,3 +15,14 @@ export {
   type SitemapDiscoveryError,
   type SitemapFetcher,
 } from "./sitemap.js";
+
+export {
+  CrawlJob,
+  type CrawlJobOptions,
+  type CrawlJobState,
+  type CrawlLoadedPage,
+  type CrawlPageRecord,
+  type CrawlPageState,
+  type CrawlRequestContext,
+  type CrawlSnapshot,
+} from "./job.js";
