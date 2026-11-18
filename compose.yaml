@@ -15,10 +15,14 @@ services:
       DOX_ENABLE_CRAWL_API: ${DOX_ENABLE_CRAWL_API:-false}
       DOX_CRAWL_ALLOWED_ORIGINS: ${DOX_CRAWL_ALLOWED_ORIGINS:-}
       DOX_CRAWL_DB_PATH: /data/dox.sqlite
+      # Must exactly match the hostname protected by Cloudflare Access.
+      DOX_PUBLIC_HOSTNAME: ${DOX_PUBLIC_HOSTNAME:-}
+      # Structured request telemetry contains route templates, not URL/body/credentials.
+      DOX_HTTP_ACCESS_LOGS: ${DOX_HTTP_ACCESS_LOGS:-true}
       # Chromium is deliberately omitted from this non-isolated container.
       DOX_ENABLE_BROWSER_RENDERING: "false"
     ports:
-      # No LAN or public binding. Cloudflare Tunnel (Issue #20) can connect
+      # No LAN or public binding. Cloudflare Tunnel on this same Pi host can connect
       # to this loopback port from the Raspberry Pi host.
       - "127.0.0.1:${DOX_BIND_PORT:-3000}:3000"
     volumes:
