@@ -226,3 +226,13 @@ Docker startup is validated in CI on Linux amd64. ARM64 builds
 are possible using the multi-platform Node image, but actual Pi
 hardware, SSD performance, and Cloudflare Tunnel are separate
 deployment checks.
+
+## Route through your existing Cloudflare Tunnel
+
+After verifying that both Compose services are healthy, follow
+[CLOUDFLARE.md](CLOUDFLARE.md) to attach a dedicated hostname to
+the **existing** tunnel, configure Cloudflare Access with Service
+Auth, and verify the independent Dox Scraper bearer authentication.
+The tunnel connector must be able to reach the Pi's **host
+loopback** listener, not another machine's `127.0.0.1`. Do not
+change Compose to a public TCP bind.
