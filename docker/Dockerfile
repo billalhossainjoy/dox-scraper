@@ -1,8 +1,9 @@
 # syntax=docker/dockerfile:1.7
 # OCI multi-architecture index digest verified against the official Docker registry.
+# Debian 13 (trixie) is assessed against the previous Debian 12 (bookworm) base.
 # Includes linux/amd64 and linux/arm64 (Raspberry Pi OS 64-bit).
 # Tag is descriptive only; digest pins actual image contents.
-ARG NODE_IMAGE=docker.io/library/node:24-bookworm-slim@sha256:dc26ae92c9fb15cf6b1d63e20f0944b2efe0f115b20e00be48fb23fceb061c54
+ARG NODE_IMAGE=docker.io/library/node:24-trixie-slim@sha256:af02d57b57719b9657a45199a79264a9437940cd55b3c7b3fc99615654f124a0
 # Build on the TARGET platform, not BUILDPLATFORM. pnpm may install native
 # optional packages (e.g. esbuild) and must not copy x86 binaries into ARM64.
 FROM ${NODE_IMAGE} AS build
