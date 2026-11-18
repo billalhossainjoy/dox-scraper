@@ -43,7 +43,7 @@ describe("SQLite crawl persistence", () => {
     roots.push(root);
     const filename = join(root, "nested", "crawl.sqlite");
     const store = new SqliteCrawlStore({ path: filename });
-    expect(store.schemaVersion()).toBe(1);
+    expect(store.schemaVersion()).toBe(2);
     store.saveSnapshot(snapshot());
     store.savePageResult({
       jobId: "job-001", url: F,
@@ -55,7 +55,7 @@ describe("SQLite crawl persistence", () => {
     store.close();
 
     const reopened = new SqliteCrawlStore({ path: filename });
-    expect(reopened.schemaVersion()).toBe(1);
+    expect(reopened.schemaVersion()).toBe(2);
     expect(reopened.getJob("job-001")).toEqual(snapshot());
     expect(reopened.getPageResult("job-001", F)).toMatchObject({
       markdown: "# Example\n\nHello",
