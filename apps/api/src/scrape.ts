@@ -8,6 +8,8 @@ export interface ScrapeOptions {
   maxBytes?: number | undefined;
   maxRedirects?: number | undefined;
   maxCharacters?: number | undefined;
+  /** Explicit opt-in: browser rendering is never selected automatically. */
+  render?: "http" | "browser" | undefined;
 }
 
 export interface ScrapeResult {
@@ -26,18 +28,28 @@ export interface ScrapeResult {
   redirectCount: number;
   /** Populated by the cached API service, omitted for uncached direct calls. */
   cache?: CacheMetadata;
+  /** Set only when browser rendering was explicitly requested. */
+  renderMode?: "browser";
 }
 
 export class ScrapeServiceError extends Error {
   constructor(
-    public readonly code: "UPSTREAM_RATE_LIMITED" | "UPSTREAM_HTTP_ERROR" | "UNSUPPORTED_CONTENT_TYPE",
-    public readonly httpStatus: 429 | 502,
+    public readonly code: "UPSTREAM_RATE_LIMITED" | "UPSTREAM_HTTP_ERROR" | "UNSUPPORTED_CONTENT_TYPE" |
+      "BROWSER_DISABLED" | "BROWSER_NOT_ALLOWED",
+    public readonly httpStatus: 403 | 429 | 502 | 503,
     message: string,
   ) {
     super(message);
     this.name = "ScrapeServiceError";
   }
 }
+
+export type BrowserHtmlRenderer = (input: {
+  url: string;
+  html: string;
+  totalTimeoutMs: number;
+  maxHtmlBytes: number;
+}) => Promise<{ html: string }>;
 
 export type ScrapeFetcher = (
   url: string,
@@ -49,6 +61,7 @@ export async function scrapePage(
   url: string,
   options: ScrapeOptions = {},
   load: ScrapeFetcher = fetchPage,
+  browserRender?: BrowserHtmlRenderer,
 ): Promise<ScrapeResult> {
   const response = await load(url, {
     ...(options.timeoutMs !== undefined ? { timeoutMs: options.timeoutMs } : {}),
@@ -81,7 +94,22 @@ export async function scrapePage(
     );
   }
 
-  const extracted = extractPage(response.html, response.finalUrl);
+  let html = response.html;
+  if (options.render === "browser") {
+    if (!browserRender) {
+      throw new ScrapeServiceError(
+        "BROWSER_DISABLED", 503, "Browser rendering is not configured",
+      );
+    }
+    const rendered = await browserRender({
+      url: response.finalUrl,
+      html,
+      totalTimeoutMs: options.timeoutMs ?? 15_000,
+      maxHtmlBytes: options.maxBytes ?? 2 * 1024 * 1024,
+    });
+    html = rendered.html;
+  }
+  const extracted = extractPage(html, response.finalUrl);
   const markdown = htmlToMarkdown(extracted.contentHtml, {
     baseUrl: response.finalUrl,
     ...(options.maxCharacters !== undefined ? { maxCharacters: options.maxCharacters } : {}),
@@ -102,5 +130,6 @@ export async function scrapePage(
     fetchedAt: response.fetchedAt,
     redirectCount: response.redirectCount,
     ...(response.cache ? { cache: response.cache } : {}),
+    ...(options.render === "browser" ? { renderMode: "browser" as const } : {}),
   };
 }
