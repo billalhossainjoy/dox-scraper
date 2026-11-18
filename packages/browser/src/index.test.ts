@@ -65,19 +65,6 @@ function makeFakeBrowser(outputHtml: string = SOURCE_HTML) {
   };
 }
 
-function requestFor(url: string, resourceType = "script"): Route {
-  return {
-    request: () => ({
-      isNavigationRequest: () => resourceType === "document",
-      resourceType: () => resourceType,
-      method: () => "GET",
-      url: () => url,
-    }),
-    fulfill: async () => { throw new Error("Unexpected direct browser resource fulfillment"); },
-    abort: async () => {},
-  } as unknown as Route;
-}
-
 describe("BrowserRenderer", () => {
   beforeEach(() => vi.clearAllMocks());
 
