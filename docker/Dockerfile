@@ -23,6 +23,14 @@ FROM ${NODE_IMAGE} AS runtime
 ENV NODE_ENV=production
 WORKDIR /app
 
+# Debian 13 security fix for CVE-2026-85091 identified by Trivy:
+# install only the precisely pinned zlib1g version, not a blanket
+# apt upgrade. This remains dependent on Debian apt repository availability.
+RUN apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+       zlib1g=1:1.3.dfsg+really1.3.1-1+deb13u1 \
+    && rm -rf /var/lib/apt/lists/*
+
 # Provide an owned directory before Docker initializes the named volume.
 # npm is needed only in the build stage (to install pnpm).
 # Remove the globally bundled npm dependency tree from the final API/worker
