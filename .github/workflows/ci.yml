@@ -43,6 +43,9 @@ jobs:
       - name: Test
         run: pnpm test
 
+      - name: Test container scan report security gate
+        run: node --test scripts/check-container-vulnerabilities.test.mjs
+
       - name: Test SQLite backup and isolated restore safety
         run: node --test scripts/sqlite-backup.test.mjs
 

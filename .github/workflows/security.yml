@@ -1,0 +1,72 @@
+name: Security dependency audit
+
+on:
+  pull_request:
+    paths:
+      - "**/package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".github/dependabot.yml"
+      - ".github/workflows/security.yml"
+  push:
+    branches: [main]
+    paths:
+      - "**/package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".github/dependabot.yml"
+      - ".github/workflows/security.yml"
+  schedule:
+    # Audit the pinned dependency graph every Monday even if source
+    # control has not changed since the previous release.
+    - cron: "0 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dependency-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 12.18.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Verify locked dependencies without running install scripts
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Audit production dependencies (HIGH and CRITICAL)
+        id: production
+        continue-on-error: true
+        run: pnpm audit --prod --audit-level high
+
+      - name: Audit all dependencies (CRITICAL)
+        id: all
+        continue-on-error: true
+        run: pnpm audit --audit-level critical
+
+      - name: Enforce security audit results
+        if: always()
+        env:
+          PROD_RESULT: ${{ steps.production.outcome }}
+          ALL_RESULT: ${{ steps.all.outcome }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$PROD_RESULT" != "success" || "$ALL_RESULT" != "success" ]]; then
+            echo "::error::Security audit found advisories at the blocked severity or the registry audit could not be completed"
+            echo "Review the pnpm audit steps above. Never silently ignore an audit outage or a known vulnerability."
+            exit 1
+          fi
+          echo "No HIGH/CRITICAL production or CRITICAL development dependency advisories reported."

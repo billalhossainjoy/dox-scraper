@@ -30,8 +30,11 @@ has been tested.
       covering all workspace importers
 - [x] Enforce `pnpm install --frozen-lockfile` in CI and Docker builds
       and fail on manifest/lockfile drift
-- [ ] Review dependency vulnerabilities, license terms and any
-      upstream security advisories before a public deployment
+- [x] Add recurring pnpm dependency audits (production HIGH/CRITICAL
+      and all-dependency CRITICAL), Dependabot update PRs and a
+      container CRITICAL-with-fix release gate
+- [ ] Review outstanding HIGH/unfixed advisories and package licenses
+      manually before public deployment
 - [x] Pin an official Node 24 **multi-architecture OCI index digest**
       in both Docker stages, and verify AMD64 plus ARM64 in Docker CI
 - [ ] Record a signed/verified release commit or tag for rollback
@@ -128,3 +131,9 @@ script handling via an isolated browser architecture.
 - [Cloudflare Tunnel and Access setup](CLOUDFLARE.md)
 - [Crawl API and site-policy safeguards](CRAWL_API.md)
 - [SQLite backups and restart handling](STORAGE.md)
+
+GitHub Actions now performs a weekly dependency advisory check and
+scans built API/worker Docker images for actionable CRITICAL findings.
+Review reported HIGH and unfixed advisories separately; these jobs do
+**not** guarantee the absence of vulnerabilities. See
+[SECURITY-SCANNING.md](SECURITY-SCANNING.md).
