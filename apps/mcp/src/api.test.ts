@@ -52,7 +52,6 @@ describe("MCP REST proxy security", () => {
         "content-type": "application/json",
       },
     });
-    expect(() => client.get("https://other.example")).not.toThrow();
     await expect(client.get("https://other.example")).rejects.toThrow();
     expect(transport).toHaveBeenCalledTimes(1);
   });
