@@ -206,3 +206,16 @@ published hostname and Access policy, then run the
 `scripts/verify-tunnel.mjs` two-layer authentication smoke test
 before allowing remote traffic. The API and SQLite worker remain
 private, and inbound ports stay closed.
+
+## Production release preflight
+
+The production Node API **fails before opening its port** if the
+example bearer secret is reused, or if critical environment flags
+are malformed. The official Compose deployment requires a random
+API token (generate with `openssl rand -hex 32`) and keeps
+browser execution disabled.
+
+GitHub Docker CI tests safe startup *and* rejects weak credentials.
+The Raspberry Pi hardware test, live Cloudflare Access test,
+SSD backup/restore drill and dependency lockfile are still separate
+release gates. Follow [docs/RELEASE-CHECKLIST.md](docs/RELEASE-CHECKLIST.md).
