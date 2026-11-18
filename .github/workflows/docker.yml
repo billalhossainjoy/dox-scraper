@@ -45,7 +45,7 @@ jobs:
       DOX_PUBLIC_HOSTNAME: scraper.ci.example.test
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Generate an ephemeral CI-only API bearer key
         shell: bash
@@ -325,7 +325,7 @@ jobs:
     timeout-minutes: 40
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Register ARM64 QEMU interpreter
         uses: docker/setup-qemu-action@v4
