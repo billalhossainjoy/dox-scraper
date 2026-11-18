@@ -254,3 +254,21 @@ database before publishing a non-overwriting backup file.
 
 See [docs/ARM64-BACKUP.md](docs/ARM64-BACKUP.md) for instructions,
 backup safety, Pi-specific validation, and known limitations.
+
+## Raspberry Pi deployment preflight
+
+Run the read-only host diagnostic **on your Pi** after starting the
+Compose deployment:
+
+```bash
+node scripts/pi-preflight.mjs
+```
+
+It checks ARM64 Linux, Docker security and loopback binding, API/worker
+health, image architecture, the shared SQLite volume and API bearer
+enforcement **without printing credentials, restarting services or
+touching the database**. It cannot verify your remote Cloudflare
+policy; run `scripts/verify-tunnel.mjs` separately after configuring
+Cloudflare Access.
+
+See [docs/PI-PREFLIGHT.md](docs/PI-PREFLIGHT.md).

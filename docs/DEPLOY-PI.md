@@ -300,3 +300,23 @@ before publishing the output. It refuses to overwrite previous backups.
 See [ARM64-BACKUP.md](ARM64-BACKUP.md) for the exact Pi commands,
 expected disk requirements, safety guards and remaining restore
 rehearsal steps.
+
+## Read-only host preflight
+
+After starting the Pi containers, run from the repository root on the
+**real Raspberry Pi**:
+
+```bash
+node scripts/pi-preflight.mjs
+```
+
+This does not require a Cloudflare service token or the API bearer
+token as CLI arguments. It examines only local Docker Compose and
+container settings, local API health, image architecture and SQLite
+volume mounts, without restarting or mutating them.
+
+It does require Node.js 24 on the host, permission to run Docker,
+and a configured Compose `.env` file. The script will **never print**
+the resolved Compose JSON or raw Docker inspect results because they
+can contain environment secrets. See
+[PI-PREFLIGHT.md](PI-PREFLIGHT.md) for the complete check list.
