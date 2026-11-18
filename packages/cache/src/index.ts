@@ -71,7 +71,7 @@ function readHeader(headers: FetchPageResult["headers"], name: string): string |
 }
 
 function safeValidator(value: string | null, maxLength: number): string | null {
-  if (!value || value.length > maxLength || /[\r\n\x00]/.test(value)) return null;
+  if (!value || value.length > maxLength || (/[\r\n]/.test(value) || value.includes(String.fromCharCode(0)))) return null;
   return value;
 }
 
