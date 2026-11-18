@@ -3,16 +3,22 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "exports": { ".": "./dist/index.js" },
+  "exports": {
+    ".": "./dist/index.js"
+  },
   "types": "./dist/index.d.ts",
-  "engines": { "node": ">=24.15.0" },
+  "engines": {
+    "node": ">=24.15.0"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run"
   },
   "dependencies": {
-    "@dox-scraper/crawler": "workspace:*"
+    "@dox-scraper/crawler": "workspace:*",
+    "@dox-scraper/extractor": "workspace:*",
+    "@dox-scraper/markdown": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^24.10.1"
