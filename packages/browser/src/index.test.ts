@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { chromium, type Browser, type BrowserContext, type Page, type Route, type WebSocketRoute } from "playwright-core";
-import { BrowserRenderError, BrowserRenderer } from "./index.js";
+import { BrowserRenderer } from "./index.js";
 
 vi.mock("playwright-core", () => ({ chromium: { launch: vi.fn() } }));
 
