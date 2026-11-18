@@ -10,6 +10,8 @@ on:
       - "packages/storage/**"
       - ".github/workflows/docker.yml"
       - "scripts/verify-docker-base.sh"
+      - "scripts/sqlite-backup.mjs"
+      - "scripts/sqlite-backup.test.mjs"
   push:
     branches: [main]
     paths:
@@ -20,6 +22,8 @@ on:
       - "packages/storage/**"
       - ".github/workflows/docker.yml"
       - "scripts/verify-docker-base.sh"
+      - "scripts/sqlite-backup.mjs"
+      - "scripts/sqlite-backup.test.mjs"
 
 permissions:
   contents: read
@@ -142,6 +146,33 @@ jobs:
             if (row?.value !== 'persisted') process.exit(1);
           "
 
+      - name: Verify online SQLite backup and isolated restore from a networkless worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          backup_dir="$RUNNER_TEMP/dox-backup-smoke"
+          mkdir -p "$backup_dir"
+          sudo chown 1000:1000 "$backup_dir"
+          docker compose run --rm --no-deps -T \
+            --volume "$backup_dir:/backups:rw" \
+            --entrypoint node worker \
+            /app/scripts/sqlite-backup.mjs \
+            --source /data/dox.sqlite \
+            --destination /backups/smoke.sqlite
+          test -s "$backup_dir/smoke.sqlite"
+          test "$(stat -c '%a' "$backup_dir/smoke.sqlite")" = "600"
+          # A second backup with the same destination must NOT overwrite it.
+          if docker compose run --rm --no-deps -T \
+            --volume "$backup_dir:/backups:rw" \
+            --entrypoint node worker \
+            /app/scripts/sqlite-backup.mjs \
+            --source /data/dox.sqlite \
+            --destination /backups/smoke.sqlite >/tmp/dox-backup-refusal.log 2>&1; then
+            echo "ERROR: existing backup was overwritten"
+            exit 1
+          fi
+          grep -q "already exists" /tmp/dox-backup-refusal.log
+
       - name: Deployment logs on failure
         if: failure()
         run: docker compose logs --tail=200 || true
@@ -149,3 +180,115 @@ jobs:
       - name: Stop containers without deleting data
         if: always()
         run: docker compose down || true
+
+
+  arm64-emulated-smoke:
+    # Real ARM64 Docker image execution under QEMU, not a physical Pi test.
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Register ARM64 QEMU interpreter
+        uses: docker/setup-qemu-action@v4
+        with:
+          platforms: arm64
+
+      - name: Configure multi-platform Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build ARM64 API and worker targets (no emulated amd64 dependencies)
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker buildx build --platform linux/arm64 \
+            --file docker/Dockerfile --target api \
+            --tag dox-scraper-api:arm64 --load .
+          docker buildx build --platform linux/arm64 \
+            --file docker/Dockerfile --target worker \
+            --tag dox-scraper-worker:arm64 --load .
+          test "$(docker image inspect dox-scraper-api:arm64 --format '{{.Architecture}}')" = arm64
+          test "$(docker image inspect dox-scraper-worker:arm64 --format '{{.Architecture}}')" = arm64
+
+      - name: Check actual ARM64 Node and SQLite execution
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --platform linux/arm64 --network none \
+            dox-scraper-api:arm64 \
+            node -e "const { DatabaseSync } = require('node:sqlite'); \
+              if (process.arch !== 'arm64') process.exit(1); \
+              const db = new DatabaseSync(':memory:'); \
+              db.exec('CREATE TABLE smoke(value INTEGER)'); \
+              db.prepare('INSERT INTO smoke(value) VALUES (42)').run(); \
+              if (db.prepare('SELECT value FROM smoke').get().value !== 42) process.exit(1); \
+              db.close();"
+
+      - name: Smoke-test the ARM64 API with no external network
+        shell: bash
+        run: |
+          set -euo pipefail
+          token="$(openssl rand -hex 32)"
+          docker run --detach --name dox-api-arm64 \
+            --platform linux/arm64 --network none \
+            --read-only --tmpfs /tmp:rw,nosuid,size=32m \
+            --tmpfs /data:rw,nosuid,size=32m,uid=1000,gid=1000 \
+            --user 1000:1000 --cap-drop ALL \
+            -e NODE_ENV=production -e PORT=3000 \
+            -e DOX_ENABLE_BROWSER_RENDERING=false \
+            -e DOX_ENABLE_CRAWL_API=false \
+            -e "DOX_SCRAPER_API_KEY=$token" \
+            dox-scraper-api:arm64
+          ready=false
+          for i in $(seq 1 50); do
+            if docker exec dox-api-arm64 node -e "
+              fetch('http://127.0.0.1:3000/health', {signal: AbortSignal.timeout(3000)})
+                .then(r => process.exit(r.ok ? 0 : 1))
+                .catch(() => process.exit(1))" >/dev/null 2>&1; then
+              ready=true
+              break
+            fi
+            sleep 3
+          done
+          if [ "$ready" != true ]; then
+            docker logs dox-api-arm64 --tail=100
+            exit 1
+          fi
+
+      - name: Smoke-test the networkless ARM64 maintenance worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --detach --name dox-worker-arm64 \
+            --platform linux/arm64 --network none \
+            --read-only --tmpfs /tmp:rw,nosuid,size=32m \
+            --tmpfs /data:rw,nosuid,size=32m,uid=1000,gid=1000 \
+            --user 1000:1000 --cap-drop ALL \
+            -e DOX_CRAWL_DB_PATH=/data/dox.sqlite \
+            -e DOX_WORKER_INTERVAL_SECONDS=60 \
+            dox-scraper-worker:arm64
+          ready=false
+          for i in $(seq 1 40); do
+            if docker exec dox-worker-arm64 \
+              node apps/worker/dist/health.js >/dev/null 2>&1; then
+              ready=true
+              break
+            fi
+            sleep 3
+          done
+          if [ "$ready" != true ]; then
+            docker logs dox-worker-arm64 --tail=100
+            exit 1
+          fi
+
+      - name: Show container logs on ARM64 smoke failure
+        if: failure()
+        run: |
+          docker logs dox-api-arm64 --tail=100 || true
+          docker logs dox-worker-arm64 --tail=100 || true
+
+      - name: Remove ephemeral ARM64 test containers
+        if: always()
+        run: |
+          docker rm -f dox-api-arm64 dox-worker-arm64 || true
