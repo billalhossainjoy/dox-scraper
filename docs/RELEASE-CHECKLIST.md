@@ -30,12 +30,15 @@ has been tested.
       and fail on manifest/lockfile drift
 - [ ] Review dependency vulnerabilities, license terms and any
       upstream security advisories before a public deployment
-- [ ] Record a pinned image digest and verified release commit/tag
-      for repeatable rollback
+- [x] Pin an official Node 24 **multi-architecture OCI index digest**
+      in both Docker stages, and verify AMD64 plus ARM64 in Docker CI
+- [ ] Record a signed/verified release commit or tag for rollback
 
-The committed lockfile pins npm dependencies, but Docker's base Node
-image still uses a moving tag; pinning its digest remains an additional
-release task. Never hand-edit or fabricate a lockfile.
+The committed lockfile pins npm dependencies, and the Dockerfile now
+pins the multi-platform official Node base image by an immutable index
+digest. Update this digest explicitly when Node or Debian patches are
+released; keeping a digest fixed also keeps older vulnerabilities
+until the pin is refreshed. Never fabricate a lockfile or digest.
 
 ## 3. Real Raspberry Pi validation — operator must perform
 
