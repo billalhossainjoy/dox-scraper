@@ -94,4 +94,37 @@ describe("scrapePage pipeline", () => {
       httpStatus: 502,
     });
   });
+  it("preserves SVG descriptions and linked SVG image references in the real scrape pipeline", async () => {
+    vi.mocked(fetchPage).mockResolvedValueOnce({
+      ...response,
+      html: '<html><head><title>SVG Test</title></head><body><main>' +
+        '<h1>Medication charts</h1>' +
+        '<svg role="img" aria-label="Medication dosage timeline">' +
+        '<script>alert("untrusted")</script><path d="M0 0" onload="alert(1)"/>' +
+        '</svg>' +
+        '<img src="/icons/tablet.svg" alt="Tablet icon" />' +
+        '</main></body></html>',
+    });
+    const result = await scrapePage("https://example.com/");
+    expect(result.markdown).toContain("SVG image: Medication dosage timeline");
+    expect(result.markdown).toContain("![Tablet icon](https://example.com/icons/tablet.svg)");
+    expect(result.contentText).toContain("Medication dosage timeline");
+    expect(result.markdown).not.toContain("<svg");
+    expect(result.markdown).not.toContain("onload=");
+    expect(result.markdown).not.toContain("alert(");
+  });
+
+  it("does not treat standalone SVG XML as an HTML webpage", async () => {
+    vi.mocked(fetchPage).mockResolvedValueOnce({
+      ...response,
+      contentType: "image/svg+xml",
+      headers: { "content-type": "image/svg+xml" },
+      html: '<svg><script>unsafe()</script><title>Image</title></svg>',
+    });
+    await expect(scrapePage("https://example.com/image.svg")).rejects.toMatchObject({
+      code: "UNSUPPORTED_CONTENT_TYPE",
+      httpStatus: 502,
+    });
+  });
+
 });

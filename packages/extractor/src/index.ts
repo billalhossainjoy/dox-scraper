@@ -64,6 +64,42 @@ function toHttpUrl(value: string | undefined, baseUrl: URL): string | null {
 }
 
 /**
+ * Inline SVG can contain executable/embedded markup. Only extract a short
+ * accessible label as inert text; never serialize its tags or references.
+ * Unlabeled/decorative SVG is discarded as before.
+ */
+function replaceInlineSvg($: ReturnType<typeof load>): void {
+  $("svg").each((_, node) => {
+    const svg = $(node);
+    const role = (svg.attr("role") ?? "").toLowerCase().trim();
+    const style = (svg.attr("style") ?? "").toLowerCase();
+    if (svg.attr("aria-hidden")?.toLowerCase() === "true" ||
+        ["presentation", "none"].includes(role) ||
+        /(?:^|;)\s*(?:display\s*:\s*none|visibility\s*:\s*hidden)(?:;|$)/.test(style)) {
+      svg.remove();
+      return;
+    }
+    // Do not allow script/style/foreignObject content inside an SVG label.
+    svg.find("script,style,foreignObject,foreignobject").remove();
+    const label = firstNonempty(
+      svg.attr("aria-label"),
+      svg.children("title").first().text(),
+      svg.children("desc").first().text(),
+    );
+    if (!label) {
+      svg.remove();
+      return;
+    }
+    const clean = Array.from(label).filter((character) => {
+      const code = character.charCodeAt(0);
+      return code >= 32 && code !== 127;
+    }).join("").slice(0, 160).trim();
+    if (clean) svg.replaceWith($("<span></span>").text("SVG image: " + clean));
+    else svg.remove();
+  });
+}
+
+/**
  * Parse HTML and extract page metadata, main content, headings and navigable links.
  * The contentHtml field is restricted to a small, safe HTML subset for downstream
  * transformation. Treat ALL scraped text and links as untrusted input.
@@ -91,6 +127,7 @@ export function extractPage(html: string, source: string): ExtractedPage {
   const canonicalUrl = toHttpUrl($('link[rel~="canonical"]').first().attr("href"), baseUrl);
   const language = firstNonempty($("html").attr("lang"));
 
+  replaceInlineSvg($);
   $(NOISE_ELEMENTS.join(",")).remove();
 
   let contentSelector = "body";

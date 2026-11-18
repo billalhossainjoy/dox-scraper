@@ -74,4 +74,56 @@ describe("htmlToMarkdown", () => {
     expect(() => htmlToMarkdown("<p>x</p>", { baseUrl: "file:///tmp/secret" })).toThrow();
     expect(() => htmlToMarkdown("<p>x</p>", { baseUrl, maxCharacters: 0 })).toThrow();
   });
+  it("preserves linked SVG assets without downloading or embedding SVG XML", () => {
+    const output = htmlToMarkdown(
+      '<article><h1>Illustration</h1>' +
+      '<img src="/diagrams/medicine.svg" alt="Medicine diagram">' +
+      '<img src="//cdn.example.com/brand/logo.svg" alt="Logo">' +
+      '<img src="data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=" alt="Untrusted inline data">' +
+      '</article>',
+      { baseUrl },
+    );
+    expect(output).toContain("![Medicine diagram](https://example.com/diagrams/medicine.svg)");
+    expect(output).toContain("![Logo](https://cdn.example.com/brand/logo.svg)");
+    expect(output).not.toContain("data:image/svg+xml");
+    expect(output).not.toContain("![Untrusted inline data]");
+  });
+
+  it("converts inline SVG accessibility titles to inert Markdown text", () => {
+    const output = htmlToMarkdown(
+      '<article><h1>Chart</h1>' +
+      '<svg aria-label="Dose chart" role="img" onload="alert(1)">' +
+      '<script>alert(2)</script><foreignObject>Danger</foreignObject>' +
+      '<path d="M1 1" onclick="alert(3)"/></svg>' +
+      '<svg><title>Weekly schedule</title><desc>not used</desc></svg>' +
+      '<svg><desc>Second description</desc></svg></article>',
+      { baseUrl },
+    );
+    expect(output).toContain("# Chart");
+    expect(output).toContain("SVG image: Dose chart");
+    expect(output).toContain("SVG image: Weekly schedule");
+    expect(output).toContain("SVG image: Second description");
+    for (const unsafe of ["<svg", "<script", "<foreignObject", "<path", "onload=", "onclick=", "alert(1)", "alert(2)", "alert(3)", "Danger"]) {
+      expect(output).not.toContain(unsafe);
+    }
+  });
+
+  it("drops hidden/decorative SVG and bounds description length", () => {
+    const output = htmlToMarkdown(
+      '<main><p>Visible</p>' +
+      '<svg aria-hidden="true"><title>Secret</title></svg>' +
+      '<svg role="presentation"><title>Ignore</title></svg>' +
+      '<svg style="display:none"><desc>Hidden</desc></svg>' +
+      '<svg><path d="M0 0"></path></svg>' +
+      '<svg aria-label="' + "z".repeat(350) + '"></svg></main>',
+      { baseUrl },
+    );
+    expect(output).toContain("Visible");
+    expect(output).not.toContain("Secret");
+    expect(output).not.toContain("Ignore");
+    expect(output).not.toContain("Hidden");
+    expect(output).not.toContain("z".repeat(161));
+    expect(output).toContain("SVG image: " + "z".repeat(160));
+  });
+
 });

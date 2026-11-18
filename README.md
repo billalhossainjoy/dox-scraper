@@ -272,3 +272,12 @@ policy; run `scripts/verify-tunnel.mjs` separately after configuring
 Cloudflare Access.
 
 See [docs/PI-PREFLIGHT.md](docs/PI-PREFLIGHT.md).
+
+## SVG image handling
+
+The HTML scraper preserves linked `.svg` images as normal Markdown
+image references and renders meaningful inline SVG descriptions as
+short, inert text. Raw SVG XML, scripts, event handlers and embedded
+objects are never returned as executable markup. The scraper does
+**not** fetch or render SVG files. See [docs/SVG.md](docs/SVG.md)
+for examples, safety boundaries and supported metadata.

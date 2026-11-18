@@ -87,4 +87,65 @@ describe("extractPage", () => {
       "source must be an absolute HTTP or HTTPS URL",
     );
   });
+  it("keeps useful SVG accessibility descriptions as safe plain text", () => {
+    const page = extractPage(
+      '<main><h1>Medication instructions</h1>' +
+      '<svg role="img" aria-label="Dosage schedule" onload="alert(1)">' +
+      '<title>Another label</title><path d="M0 0" onclick="alert(2)"/>' +
+      '<script>alert("svg-script")</script>' +
+      '<foreignObject><p>unsafe embedded HTML</p></foreignObject>' +
+      '</svg>' +
+      '<svg><title>Weekly doses</title><desc>7-day chart</desc>' +
+      '<use href="https://other.example/script.svg#symbol"/></svg>' +
+      '<svg><desc>Chart of side effects</desc><circle r="4"/></svg>' +
+      '<img src="/assets/dosage.svg" alt="Dosage chart" onerror="alert(3)">' +
+      '</main>',
+      source,
+    );
+    expect(page.contentText).toContain("SVG image: Dosage schedule");
+    expect(page.contentText).toContain("SVG image: Weekly doses");
+    expect(page.contentText).toContain("SVG image: Chart of side effects");
+    expect(page.contentHtml).toContain('src="/assets/dosage.svg"');
+    for (const danger of ["<svg", "<use", "<path", "<script", "<foreign", "onload=", "onclick=", "onerror=", "unsafe embedded HTML", "svg-script"]) {
+      expect(page.contentHtml.toLowerCase()).not.toContain(danger.toLowerCase());
+    }
+  });
+
+  it("discards SVG sprites, hidden icons and unlabeled vector markup", () => {
+    const page = extractPage(
+      '<article><h2>Visible heading</h2>' +
+      '<svg aria-hidden="true"><title>Hidden icon</title></svg>' +
+      '<svg role="presentation"><title>Decorative title</title></svg>' +
+      '<svg role="none"><desc>Decorative description</desc></svg>' +
+      '<svg style="display:none"><title>Sprite title</title></svg>' +
+      '<svg style="visibility:hidden"><title>Hidden title</title></svg>' +
+      '<svg><path d="M0 0"></path></svg>' +
+      '<p>Visible description</p></article>',
+      source,
+    );
+    expect(page.contentText).toContain("Visible description");
+    expect(page.contentText).not.toContain("SVG image:");
+    for (const hidden of [
+      "Hidden icon", "Decorative title", "Decorative description",
+      "Sprite title", "Hidden title",
+    ]) {
+      expect(page.contentText).not.toContain(hidden);
+    }
+    expect(page.contentHtml).not.toContain("<svg");
+  });
+
+  it("bounds SVG labels and escapes markup-like text rather than copying executable tags", () => {
+    const label = "x".repeat(300);
+    const page = extractPage(
+      '<main><h1>Safe</h1><svg aria-label="' + label + '">' +
+      '<title>ignored because aria-label has priority</title>' +
+      '</svg><svg><title>&lt;img onerror=alert(1)&gt;</title></svg></main>',
+      source,
+    );
+    expect(page.contentText).toContain("SVG image: " + "x".repeat(160));
+    expect(page.contentText).not.toContain("x".repeat(161));
+    expect(page.contentHtml).toContain("&lt;img onerror=alert(1)&gt;");
+    expect(page.contentHtml).not.toContain("<img onerror");
+  });
+
 });
