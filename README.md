@@ -163,3 +163,15 @@ a shared rate limiter and SQLite persistence.
 
 See [docs/CRAWL_API.md](docs/CRAWL_API.md) for setup, endpoint details,
 owner-scoped results, safety controls and restart behavior.
+
+## MCP tools for AI clients
+
+The new `apps/mcp` app exposes **scrape_url**, **map_url**,
+**crawl_url** and **get_crawl_status** over local MCP stdio.
+Every tool delegates to the existing bearer-authenticated Hono REST API
+rather than creating an unrestricted scraper. The tool host must
+supply `DOX_SCRAPER_API_KEY` and can connect to a trusted local or
+HTTPS REST endpoint via `DOX_MCP_API_URL`.
+
+See [docs/MCP.md](docs/MCP.md) for stdio client configuration, security
+and the scope of the four tools.
