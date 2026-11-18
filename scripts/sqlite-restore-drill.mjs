@@ -4,7 +4,7 @@ import {
   constants, copyFileSync, createReadStream, lstatSync, readFileSync,
   readdirSync, realpathSync, rmSync, statSync,
 } from "node:fs";
-import { basename, dirname, join, resolve, sep } from "node:path";
+import { join, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 import { DatabaseSync } from "node:sqlite";
 
@@ -83,7 +83,6 @@ export async function restoreDisposableSnapshot({
       readFileSync(marker, "utf8") !== RESTORE_MARKER_CONTENT) {
     throw new Error("Missing or invalid disposable restore marker");
   }
-  if (!statSync(root).mode) throw new Error("Invalid disposable restore directory");
   const originalHash = await sha256File(source);
   if (originalHash !== expectedSha256) {
     throw new Error("Backup checksum does not match trusted SHA-256");
