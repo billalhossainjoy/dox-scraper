@@ -56,6 +56,47 @@ describe("MCP REST proxy security", () => {
     expect(transport).toHaveBeenCalledTimes(1);
   });
 
+  it("uses Cloudflare Access service-token headers only on configured HTTPS origin", async () => {
+    const transport = vi.fn(async () => mockResponse({
+      success: true, data: { state: "queued" },
+    }));
+    const client = new DoxRestClient({
+      apiUrl: "https://scraper.example.com",
+      apiKey: "dox-bearer-example",
+      accessClientId: "access-client-id",
+      accessClientSecret: "access-client-secret",
+      transport: transport as typeof fetch,
+    });
+    expect(await client.post("/v1/crawl", { url: "https://example.com" }))
+      .toMatchObject({ state: "queued" });
+    const [target, settings] = transport.mock.calls[0]!;
+    expect(target).toBe("https://scraper.example.com/v1/crawl");
+    expect(settings).toMatchObject({
+      method: "POST",
+      redirect: "manual",
+      headers: {
+        authorization: "Bearer dox-bearer-example",
+        "CF-Access-Client-Id": "access-client-id",
+        "CF-Access-Client-Secret": "access-client-secret",
+      },
+    });
+  });
+
+  it("rejects partial, malformed or non-HTTPS Access configuration", () => {
+    const common = { apiKey: "a-key" };
+    expect(() => new DoxRestClient({ ...common, accessClientId: "id" }))
+      .toThrow(TypeError);
+    expect(() => new DoxRestClient({ ...common, accessClientSecret: "secret" }))
+      .toThrow(TypeError);
+    expect(() => new DoxRestClient({
+      ...common, accessClientId: "id", accessClientSecret: "secret",
+    })).toThrow(TypeError);
+    expect(() => new DoxRestClient({
+      ...common, apiUrl: "https://scraper.example.com",
+      accessClientId: "id", accessClientSecret: "line\r\nbreak",
+    })).toThrow(TypeError);
+  });
+
   it("does not follow an API redirect to another destination", async () => {
     const transport = vi.fn(async () => new Response(null, {
       status: 302, headers: { location: "http://127.0.0.1:8000/stolen" },
