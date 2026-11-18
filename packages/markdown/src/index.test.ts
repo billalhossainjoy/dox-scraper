@@ -19,8 +19,8 @@ describe("htmlToMarkdown", () => {
     expect(output).toContain("# Medicine catalog");
     expect(output).toContain("**important**");
     expect(output).toContain("*details*");
-    expect(output).toMatch(/^-\\s+Tablet$/m);
-    expect(output).toMatch(/^-\\s+Capsule$/m);
+    expect(output).toMatch(/^-\s+Tablet$/m);
+    expect(output).toMatch(/^-\s+Capsule$/m);
     expect(output).toContain("[Napa guide](https://example.com/guides/napa)");
     expect(output).toContain("![Medicine strip](https://example.com/images/strip.png)");
   });
