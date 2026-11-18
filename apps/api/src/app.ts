@@ -26,7 +26,7 @@ function tokenMatches(presented: string, expected: string): boolean {
 }
 
 export interface AppOptions {
-  apiKey?: string;
+  apiKey?: string | undefined;
   scrape?: typeof scrapePage;
 }
 
