@@ -26,3 +26,12 @@ export {
   type CrawlRequestContext,
   type CrawlSnapshot,
 } from "./job.js";
+
+export {
+  DomainRateLimiter,
+  RateLimitError,
+  parseRetryAfter,
+  type DomainPermit,
+  type DomainRateLimitOptions,
+  type RateLimitedResponse,
+} from "./rate-limit.js";

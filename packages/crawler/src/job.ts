@@ -41,6 +41,15 @@ export interface CrawlLoadedPage {
   statusCode: number;
   contentType: string | null;
   html: string;
+  /** Upstream response headers, for Retry-After and other response policy. */
+  headers?: { [name: string]: string | string[] | number | undefined };
+}
+
+export interface CrawlRequestPermit {
+  /** Record upstream status before releasing, to enforce cooldowns. */
+  observe(statusCode: number, retryAfter?: string | null): void;
+  /** Called on every success/failure/cancellation path. */
+  release(): void;
 }
 
 export interface CrawlRequestContext {
@@ -66,8 +75,8 @@ export interface CrawlJobOptions {
   requestTimeoutMs?: number;
   /** Check current URL against robots.txt and site permissions. */
   canFetch: (url: string, signal: AbortSignal) => Promise<boolean>;
-  /** Wait until a per-origin request is allowed; must honor AbortSignal. */
-  acquirePermit: (url: string, signal: AbortSignal) => Promise<void>;
+  /** Reserve a rate-limited slot. If returned, the lease is always released. */
+  acquirePermit: (url: string, signal: AbortSignal) => Promise<void | CrawlRequestPermit>;
   /** Fetch a single page with NO redirects; must honor AbortSignal. */
   loadPage: (url: string, context: CrawlRequestContext) => Promise<CrawlLoadedPage>;
   /** Process/store a page; HTML is never retained in the job snapshot. */
@@ -225,9 +234,10 @@ export class CrawlJob {
 
       // Policy failures fail the entire crawl closed; a denied URL is skipped.
       let allowed: boolean;
+      let permit: void | CrawlRequestPermit = undefined;
       try {
         allowed = await waitFor(this.options.canFetch(item.url, signal), signal);
-        if (allowed) await waitFor(this.options.acquirePermit(item.url, signal), signal);
+        if (allowed) permit = await waitFor(this.options.acquirePermit(item.url, signal), signal);
       } catch (error) {
         if (this.controller.signal.aborted) {
           item.state = "cancelled";
@@ -248,6 +258,7 @@ export class CrawlJob {
       if (this.controller.signal.aborted) {
         item.state = "cancelled";
         item.error = "CANCELLED";
+        if (permit) permit.release();
         break;
       }
 
@@ -266,6 +277,14 @@ export class CrawlJob {
           item.error = "CANCELLED";
           break;
         }
+
+        // Record 403/429/503 and Retry-After before stopping a throttled
+        // crawl. Queued requests from other jobs then obey the same pause.
+        const header = Object.entries(response.headers ?? {})
+          .find(([name]) => name.toLowerCase() === "retry-after")?.[1];
+        const retryAfter = typeof header === "string" ? header
+          : Array.isArray(header) ? (header[0] ?? null) : null;
+        if (permit) permit.observe(response.statusCode, retryAfter);
 
         const final = validateTargetUrl(response.finalUrl);
         if (final.href !== item.url || final.origin !== this.allowedOrigin) {
@@ -341,6 +360,8 @@ export class CrawlJob {
         }
         item.state = "failed";
         item.error = signal.aborted ? "REQUEST_TIMEOUT" : errorMessage(error);
+      } finally {
+        if (permit) permit.release();
       }
     }
 
