@@ -222,7 +222,7 @@ table is still independent of the API's in-memory response cache,
 so the maintenance worker may have little to prune until a
 persistent cache integration is added.
 
-Docker startup is validated in CI on Linux amd64. ARM64 builds
+Docker startup and **negative production-secret checks** are validated in CI on Linux amd64. ARM64 builds
 are possible using the multi-platform Node image, but actual Pi
 hardware, SSD performance, and Cloudflare Tunnel are separate
 deployment checks.
@@ -236,3 +236,31 @@ Auth, and verify the independent Dox Scraper bearer authentication.
 The tunnel connector must be able to reach the Pi's **host
 loopback** listener, not another machine's `127.0.0.1`. Do not
 change Compose to a public TCP bind.
+
+## Production preflight (release hardening)
+
+The API now checks deployment configuration **before opening port 3000**
+when `NODE_ENV=production` (as set by Compose).
+
+- `DOX_SCRAPER_API_KEY` must not be a placeholder, obviously weak,
+  too short, control-character-containing or repetitive value.
+  Generate a fresh one using `openssl rand -hex 32` on the Pi.
+  The shape check is not a substitute for using a cryptographically
+  secure generator.
+- `DOX_ENABLE_CRAWL_API`, `DOX_ENABLE_BROWSER_RENDERING` and
+  `DOX_HTTP_ACCESS_LOGS` must be `true` or `false` if set.
+- If the crawl API is enabled, an explicit comma-separated list
+  of exact HTTP(S) origins is required.
+- If provided, `DOX_PUBLIC_HOSTNAME` must be a lowercase DNS hostname
+  without wildcard, scheme or port.
+- Production Compose does not isolate Chromium, so setting
+  `DOX_ENABLE_BROWSER_RENDERING=true` fails startup.
+
+Preflight errors identify **which configuration variable** needs
+attention but never print its value. The production Docker CI test
+verifies rejection of the original `.env.example` placeholder and
+other weak settings. Development scripts can still use short
+temporary API keys for local/offline testing.
+
+Use [RELEASE-CHECKLIST.md](RELEASE-CHECKLIST.md) before enabling
+remote access.
