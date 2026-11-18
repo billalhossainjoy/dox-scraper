@@ -99,9 +99,12 @@ docker compose logs --tail=100 api worker
 ```
 
 On a Pi, Docker builds natively for ARM64; no separate ARM image
-or platform emulation flag is needed. The official `node:24-bookworm-slim`
-image supplies architecture-compatible Node binaries, while the
-TypeScript build stage produces portable JavaScript.
+or platform emulation flag is needed. The Dockerfile uses a pinned
+**multi-architecture manifest-index digest** for the official
+`node:24-bookworm-slim` image, verified to contain both Linux AMD64
+and Linux ARM64. The **build and runtime stages both target the
+deployment architecture** so optional native Node dependencies are
+not accidentally copied from an x86 build into the Pi image.
 
 On an amd64 development host, you can validate ARM64 output with
 Docker Buildx/QEMU (slower than a native Pi build):
@@ -113,12 +116,30 @@ docker buildx build --platform linux/arm64 \
   --file docker/Dockerfile --target worker .
 ```
 
-The Dockerfile uses Node 24 to meet `node:sqlite` requirements.
-The repository now commits `pnpm-lock.yaml` generated with pinned
-pnpm 12.18.0. Docker and CI use `pnpm install --frozen-lockfile`.
-Dependency updates must update the lockfile intentionally. The
-`node:24-bookworm-slim` base image still uses a moving tag; audit and
-pin an immutable image digest before claiming fully reproducible images.
+The Dockerfile uses Node 24 to meet `node:sqlite` requirements,
+and commits a `pnpm-lock.yaml` generated with pnpm 12.18.0.
+Docker and CI use `pnpm install --frozen-lockfile`. The base image
+reference contains both a readable tag and a **fixed SHA-256 digest**.
+Docker resolves the digest, not the mutable tag, for all build stages.
+
+Verify the pinned multi-architecture registry manifest from the repository
+root before release:
+
+```bash
+bash scripts/verify-docker-base.sh
+```
+
+The script checks the exact official Docker Hub image, compares its digest
+to the Dockerfile, and confirms that the index contains Linux AMD64 and
+Linux ARM64. It does not prove a full ARM64 build works on your own Pi;
+run `docker compose up --build -d` and check architecture and health
+on the actual Pi before launch.
+
+To upgrade Node or apply security updates, **intentionally** select an
+updated digest from the registry, update the Dockerfile, run the
+verification script and rebuild/test both images in CI. A digest pin
+prevents surprise upgrades: it also means security patches require
+explicit maintenance.
 
 ## 4. Check the API and worker health
 
