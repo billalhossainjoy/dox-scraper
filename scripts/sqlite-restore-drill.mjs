@@ -142,9 +142,25 @@ if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.m
   (async () => {
     const result = await restoreDisposableSnapshot(parseCli(process.argv.slice(2)));
     console.log("Disposable SQLite restore verified", result);
-  })().catch(() => {
-    // Do not leak source/destination paths, environment or SQL data in logs.
-    console.error("Restore drill rejected backup or disposable target; no live database was modified");
+  })().catch((error) => {
+    // Only print strictly allowlisted, constant error strings or safe
+    // Node/SQLite error CODES. Never print filesystem paths or SQL values.
+    const known = new Set([
+      "Refusing unsafe or overlapping restore paths",
+      "Disposable target must contain only the restore-drill marker",
+      "Missing or invalid disposable restore marker",
+      "Backup checksum does not match trusted SHA-256",
+      "Backup is not a supported Dox Scraper schema",
+      "Restored SQLite integrity check failed",
+      "Restored SQLite foreign keys are invalid",
+      "Restored file checksum mismatch",
+      "Restored SQLite schema version mismatch",
+      "Backup must be a regular file and target must be a real directory",
+    ]);
+    const detail = known.has(error?.message) ? error.message
+      : typeof error?.code === "string" && /^[A-Z_]{3,48}$/.test(error.code)
+        ? error.code : "INVALID_BACKUP_OR_TARGET";
+    console.error("Restore drill failed:", detail);
     process.exitCode = 1;
   });
 }
