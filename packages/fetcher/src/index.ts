@@ -94,7 +94,7 @@ interface SingleResponse {
 
 type SafeFetchOptions = Required<Omit<FetchPageOptions, "signal">> & {
   signal: AbortSignal;
-  externalSignal?: AbortSignal;
+  externalSignal?: AbortSignal | undefined;
 };
 
 async function requestOnce(target: URL, options: SafeFetchOptions): Promise<SingleResponse> {
@@ -107,7 +107,7 @@ async function requestOnce(target: URL, options: SafeFetchOptions): Promise<Sing
         signal: options.signal,
         // Pin the validated DNS answer to the socket; do not initiate an
         // automatic secondary lookup/address-family race.
-        autoSelectFamily: false,
+        ...{ autoSelectFamily: false },
         headers: {
           "user-agent": options.userAgent,
           accept: "text/html,application/xhtml+xml;q=0.9,text/plain;q=0.8",
