@@ -26,11 +26,62 @@ export interface ExtractedPage {
 
 const NOISE_ELEMENTS = [
   "script", "style", "noscript", "template", "iframe", "object", "embed",
-  "svg", "canvas", "nav", "footer", "header", "aside", "form",
+  "canvas", "nav", "footer", "header", "aside", "form",
   "dialog", "[hidden]", "[aria-hidden='true']",
   ".cookie-banner", ".cookie-consent", ".advertisement", ".ads",
   "[role='navigation']", "[role='banner']", "[role='complementary']",
 ];
+
+const MAX_SVG_DESCRIPTIONS = 100;
+const MAX_SVG_DESCRIPTION_CHARACTERS = 240;
+
+/**
+ * Replace meaningful inline SVG elements with bounded, escaped text.
+ * Do not serialize or render any SVG markup. The same boundary is applied
+ * in both extraction and independently invoked Markdown conversion.
+ */
+function preserveSvgDescriptions($: ReturnType<typeof load>): void {
+  let preserved = 0;
+  $("svg").each((_, element) => {
+    const svg = $(element);
+    // Outer SVGs own their subtrees. Avoid processing detached nested SVGs.
+    if (svg.parents("svg").length > 0) return;
+    const role = (svg.attr("role") ?? "").toLowerCase().trim();
+    if (svg.is("[hidden]") ||
+        (svg.attr("aria-hidden") ?? "").toLowerCase().trim() === "true" ||
+        role === "presentation" || role === "none" || role === "decorative") {
+      svg.remove();
+      return;
+    }
+    // These subtree types can hide script or attacker-controlled content
+    // in otherwise accessible <title>/<desc> descriptions.
+    svg.find("script,style,foreignObject,foreignobject,iframe,object,embed,template").remove();
+    const descriptions = [
+      svg.attr("aria-label"),
+      svg.children("title").first().text(),
+      svg.children("desc").first().text(),
+    ];
+    let label = "";
+    for (const value of descriptions) {
+      const candidate = (value ?? "")
+        .replace(/[\u0000-\u001f\u007f\u202a-\u202e\u2066-\u2069]/g, " ")
+        .replace(/\s+/g, " ").trim();
+      if (candidate) {
+        label = Array.from(candidate).slice(0, MAX_SVG_DESCRIPTION_CHARACTERS).join("");
+        break;
+      }
+    }
+    if (!label || preserved >= MAX_SVG_DESCRIPTIONS) {
+      svg.remove();
+      return;
+    }
+    // Cheerio .text() escapes HTML metacharacters. No SVG attributes,
+    // event handlers, paths, scripts or XML make it past this point.
+    const textNode = $("<span></span>").text(label);
+    svg.replaceWith(textNode);
+    preserved += 1;
+  });
+}
 
 const CONTENT_SELECTORS = [
   "article", "main", "[role='main']", "[itemprop='articleBody']",
@@ -91,6 +142,7 @@ export function extractPage(html: string, source: string): ExtractedPage {
   const canonicalUrl = toHttpUrl($('link[rel~="canonical"]').first().attr("href"), baseUrl);
   const language = firstNonempty($("html").attr("lang"));
 
+  preserveSvgDescriptions($);
   $(NOISE_ELEMENTS.join(",")).remove();
 
   let contentSelector = "body";
