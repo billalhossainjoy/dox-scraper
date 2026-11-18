@@ -44,6 +44,9 @@ jobs:
       - name: Validate Compose configuration
         run: docker compose -f compose.yaml config --quiet
 
+      - name: Verify pinned Node base supports ARM64 and AMD64
+        run: bash scripts/verify-docker-base.sh
+
       - name: Build API and worker images
         run: docker compose -f compose.yaml build api worker
 
