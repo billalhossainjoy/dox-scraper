@@ -10,8 +10,12 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@dox-scraper/fetcher": "workspace:*",
+    "@dox-scraper/extractor": "workspace:*",
+    "@dox-scraper/markdown": "workspace:*",
     "@hono/node-server": "^1.19.6",
-    "hono": "^4.10.6"
+    "hono": "^4.10.6",
+    "zod": "^4.1.12"
   },
   "devDependencies": {
     "@types/node": "^24.10.1",
