@@ -43,7 +43,7 @@ describe("SQLite crawl persistence", () => {
     roots.push(root);
     const filename = join(root, "nested", "crawl.sqlite");
     const store = new SqliteCrawlStore({ path: filename });
-    expect(store.schemaVersion()).toBe(1);
+    expect(store.schemaVersion()).toBe(2);
     store.saveSnapshot(snapshot());
     store.savePageResult({
       jobId: "job-001", url: F,
@@ -55,7 +55,7 @@ describe("SQLite crawl persistence", () => {
     store.close();
 
     const reopened = new SqliteCrawlStore({ path: filename });
-    expect(reopened.schemaVersion()).toBe(1);
+    expect(reopened.schemaVersion()).toBe(2);
     expect(reopened.getJob("job-001")).toEqual(snapshot());
     expect(reopened.getPageResult("job-001", F)).toMatchObject({
       markdown: "# Example\n\nHello",
@@ -181,4 +181,57 @@ describe("SQLite crawl persistence", () => {
     expect(db.getPageResult("job-001", F)).toBeNull();
     db.close();
   });
+  it("isolates owned jobs and returns paginated Markdown results in discovery order", () => {
+    const db = new SqliteCrawlStore({ path: ":memory:" });
+    const first = snapshot({
+      state: "completed", attempted: 2, completed: 2, queued: 0, discovered: 2,
+      pages: [
+        { url: F, depth: 0, state: "completed" },
+        { url: "https://example.com/next", depth: 1, state: "completed" },
+      ],
+    });
+    db.saveSnapshot(first);
+    const ownerA = "a".repeat(64);
+    const ownerB = "b".repeat(64);
+    db.assignOwner(first.id, ownerA);
+    db.assignOwner(first.id, ownerA);
+    expect(db.ownsJob(first.id, ownerA)).toBe(true);
+    expect(db.ownsJob(first.id, ownerB)).toBe(false);
+    expect(db.getOwnedJob(first.id, ownerB)).toBeNull();
+    expect(db.getOwnedJob(first.id, ownerA)).toEqual(first);
+    expect(() => db.assignOwner(first.id, ownerB)).toThrow();
+
+    db.savePageResult({
+      jobId: first.id, url: F,
+      markdown: "# Start", contentText: "Start", metadata: { title: "Start" },
+    });
+    db.savePageResult({
+      jobId: first.id, url: "https://example.com/next",
+      markdown: "# Next", contentText: "Next", metadata: { title: "Next" },
+    });
+    const page = db.listPageResults(first.id, 1, 1);
+    expect(page).toMatchObject({
+      total: 2, limit: 1, offset: 1,
+      results: [{ url: "https://example.com/next", markdown: "# Next" }],
+    });
+    expect(() => db.listPageResults(first.id, 0)).toThrow();
+    db.close();
+  });
+
+  it("fails interrupted jobs explicitly and rejects invalid ownership digests", () => {
+    const db = new SqliteCrawlStore({ path: ":memory:" });
+    db.saveSnapshot(snapshot());
+    expect(() => db.assignOwner("job-001", "not-a-digest")).toThrow(TypeError);
+    db.failJob("job-001", "CRAWL_RUNTIME_ERROR");
+    expect(db.getJob("job-001")).toMatchObject({
+      state: "failed",
+      error: "CRAWL_RUNTIME_ERROR",
+      queued: 0,
+      failed: 1,
+    });
+    db.failJob("job-001", "SHOULD_NOT_OVERRIDE");
+    expect(db.getJob("job-001")?.error).toBe("CRAWL_RUNTIME_ERROR");
+    db.close();
+  });
+
 });

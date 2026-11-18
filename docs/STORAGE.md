@@ -7,12 +7,13 @@ as part of the existing Node process. Use Node **24.15+**.
 
 ## What is durable?
 
-The schema (currently v1) has four main tables:
+The schema (currently v2) has four main data tables plus an ownership table:
 
 - `crawl_jobs`: lifecycle, budgets, progress counters, timestamps and errors
 - `crawl_pages`: discovered URLs, depth, status, errors and discovery counts
 - `page_results`: extracted Markdown/text, bounded JSON metadata and
   SHA-256 Markdown fingerprints
+- `crawl_job_owners`: keyed hashes of authorized API credentials for scoped job access
 - `cache_entries`: optional persistent public HTML cache primitives,
   ETag/Last-Modified, expiry and SHA-256 HTML fingerprints
 

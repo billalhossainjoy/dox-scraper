@@ -1,4 +1,3 @@
-import { timingSafeEqual } from "node:crypto";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { z } from "zod";
@@ -10,6 +9,10 @@ import {
   type BrowserRenderInput,
   type BrowserRenderResult,
 } from "@dox-scraper/browser";
+import { tokenMatches } from "./auth.js";
+import { registerCrawlRoutes } from "./crawl-routes.js";
+import type { CrawlManager } from "./crawl-manager.js";
+import type { SqliteCrawlStore } from "@dox-scraper/storage";
 import { openApiDocument } from "./openapi.js";
 import { scrapePage, ScrapeServiceError } from "./scrape.js";
 
@@ -27,12 +30,6 @@ const scrapeRequest = z.object({
   }).strict().optional(),
 }).strict();
 
-function tokenMatches(presented: string, expected: string): boolean {
-  const actual = Buffer.from(presented, "utf8");
-  const secret = Buffer.from(expected, "utf8");
-  return actual.length === secret.length && timingSafeEqual(actual, secret);
-}
-
 export interface AppOptions {
   apiKey?: string | undefined;
   scrape?: typeof scrapePage;
@@ -43,6 +40,13 @@ export interface AppOptions {
   browserExecutablePath?: string;
   /** Injectable for offline tests. Browser access still requires opt-in. */
   browserRender?: (input: BrowserRenderInput) => Promise<BrowserRenderResult>;
+  /** Independent opt-in switch; off by default for untrusted sites. */
+  crawlEnabled?: boolean;
+  /** Exact operator-approved HTTP(S) origins. No wildcard support. */
+  crawlAllowedOrigins?: string[];
+  /** Optional injected store or manager for isolated offline tests. */
+  crawlStore?: SqliteCrawlStore;
+  crawlManager?: CrawlManager;
 }
 
 export function createApp(options: AppOptions = {}) {
@@ -211,6 +215,16 @@ export function createApp(options: AppOptions = {}) {
       }
     },
   );
+
+  registerCrawlRoutes(app, {
+    secret,
+    enabled: options.crawlEnabled ?? process.env.DOX_ENABLE_CRAWL_API === "true",
+    allowedOrigins: options.crawlAllowedOrigins ??
+      (process.env.DOX_CRAWL_ALLOWED_ORIGINS ?? "")
+        .split(",").map((origin) => origin.trim()).filter(Boolean),
+    ...(options.crawlStore ? { store: options.crawlStore } : {}),
+    ...(options.crawlManager ? { manager: options.crawlManager } : {}),
+  });
 
   return app;
 }
