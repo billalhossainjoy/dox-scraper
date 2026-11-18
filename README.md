@@ -152,3 +152,14 @@ in-memory response cache.
 
 See [docs/STORAGE.md](docs/STORAGE.md) for usage, data model, and backup
 and security considerations.
+
+## Opt-in crawl job API
+
+Authenticated, persistent crawl jobs can be created, polled, paginated
+and cancelled through `/v1/crawl`, `/v1/crawl/:id` and
+`/v1/crawl/:id/results`. Crawling is **disabled by default** and
+requires explicit operator origin allowlists, robots.txt access checks,
+a shared rate limiter and SQLite persistence.
+
+See [docs/CRAWL_API.md](docs/CRAWL_API.md) for setup, endpoint details,
+owner-scoped results, safety controls and restart behavior.
