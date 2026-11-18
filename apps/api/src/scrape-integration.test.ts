@@ -8,7 +8,7 @@ import type { ScrapeResult } from "./scrape.js";
 // converter. Only the outbound HTTP boundary is mocked: tests never hit the
 // public internet or depend on a third-party website.
 vi.mock("@dox-scraper/fetcher", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@dox-scraper/fetcher")>()),
+  ...(await importOriginal<Record<string, unknown>>()),
   fetchPage: vi.fn(),
 }));
 
