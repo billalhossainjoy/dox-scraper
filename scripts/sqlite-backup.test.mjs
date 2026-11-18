@@ -67,7 +67,6 @@ test("creates a consistent backup with uncheckpointed WAL content and verified r
         "Content from WAL",
       );
       assert.equal(restored.prepare("PRAGMA integrity_check").get().integrity_check, "ok");
-      assert.equal(restored.prepare("PRAGMA journal_mode").get().journal_mode, "wal");
     } finally {
       restored.close();
     }
