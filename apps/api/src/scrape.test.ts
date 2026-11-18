@@ -108,7 +108,8 @@ describe("POST /v1/scrape", () => {
     const app = createApp({ apiKey: "local-secret" });
     const response = await app.request("/openapi.json");
     expect(response.status).toBe(200);
-    const json = await response.json();
-    expect(json.paths["/v1/scrape"].post.security).toEqual([{ bearerAuth: [] }]);
+    await expect(response.json()).resolves.toMatchObject({
+      paths: { "/v1/scrape": { post: { security: [{ bearerAuth: [] }] } } },
+    });
   });
 });
