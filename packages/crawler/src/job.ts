@@ -234,7 +234,7 @@ export class CrawlJob {
 
       // Policy failures fail the entire crawl closed; a denied URL is skipped.
       let allowed: boolean;
-      let permit: void | CrawlRequestPermit;
+      let permit: void | CrawlRequestPermit = undefined;
       try {
         allowed = await waitFor(this.options.canFetch(item.url, signal), signal);
         if (allowed) permit = await waitFor(this.options.acquirePermit(item.url, signal), signal);
