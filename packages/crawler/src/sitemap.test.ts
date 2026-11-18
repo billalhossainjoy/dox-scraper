@@ -90,7 +90,7 @@ describe("bounded same-origin sitemap discovery", () => {
       [`${ORIGIN}/maps/child.xml`]: {
         html: urlSet(
           `${ORIGIN}/about#fragment`,
-          `${ORIGIN}/medicine?search=a&amp;sort=asc`,
+          `${ORIGIN}/medicine?search=a&sort=asc`,
           `${ORIGIN}/medicine?search=b`,
           `${ORIGIN}/assets/photo.png`,
         ),
@@ -188,6 +188,27 @@ describe("bounded same-origin sitemap discovery", () => {
     const result = await discoverSitemapUrls(`${ORIGIN}/`, {}, fetcher);
     expect(result.pageUrls).toEqual([`${ORIGIN}/good`]);
     expect(result.errors).toMatchObject([{ url: `${ORIGIN}/broken.xml`, code: "FETCH_FAILED" }]);
+  });
+
+  it("stops discovery when robots.txt is rate limited", async () => {
+    const { fetcher, requested } = mockFetcher({
+      [`${ORIGIN}/robots.txt`]: { status: 429, html: "" },
+    });
+    const result = await discoverSitemapUrls(`${ORIGIN}/`, {}, fetcher);
+    expect(result.pageUrls).toEqual([]);
+    expect(result.errors.map((error) => error.code)).toEqual(["UPSTREAM_UNAVAILABLE"]);
+    expect(requested).toEqual([`${ORIGIN}/robots.txt`]);
+  });
+
+  it("stops subsequent sitemap requests on rate limiting", async () => {
+    const { fetcher, requested } = mockFetcher({
+      [`${ORIGIN}/robots.txt`]: { html: "Sitemap: /busy.xml" },
+      [`${ORIGIN}/busy.xml`]: { status: 429, html: "" },
+    });
+    const result = await discoverSitemapUrls(`${ORIGIN}/`, {}, fetcher);
+    expect(result.pageUrls).toEqual([]);
+    expect(result.errors.map((error) => error.code)).toEqual(["UPSTREAM_UNAVAILABLE"]);
+    expect(requested).toEqual([`${ORIGIN}/robots.txt`, `${ORIGIN}/busy.xml`]);
   });
 
   it("validates bounds and the seed URL before making requests", async () => {
