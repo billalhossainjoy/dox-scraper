@@ -1,0 +1,24 @@
+name: One-time verify current Node 24 image index
+on:
+  push:
+    branches: [chore/029-trivy-vulnerability-remediation]
+    paths: [".github/workflows/probe-node-image.yml"]
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve latest official Node manifest without changing production
+        shell: bash
+        run: |
+          set -euo pipefail
+          ref="docker.io/library/node:24-bookworm-slim"
+          manifest="$(docker buildx imagetools inspect --raw "$ref")"
+          printf '%s' "$manifest" | jq -e '
+            [.manifests[] | select(.platform.os == "linux") | .platform.architecture]
+              | (index("amd64") != null and index("arm64") != null)
+          '
+          digest="$(docker buildx imagetools inspect "$ref" | awk '/^Digest:/ {print $2; exit}')"
+          [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]]
+          echo "VERIFIED_LATEST_NODE_24_MULTIARCH_DIGEST=$digest"
