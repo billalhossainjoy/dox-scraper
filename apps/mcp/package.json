@@ -1,0 +1,24 @@
+{
+  "name": "@dox-scraper/mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node dist/index.js",
+    "dev": "node --env-file=../../.env --import tsx src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/server": "^2.3.1",
+    "@dox-scraper/fetcher": "workspace:*",
+    "@dox-scraper/crawler": "workspace:*",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/client": "^2.3.1",
+    "@types/node": "^24.10.1",
+    "tsx": "^4.20.6"
+  }
+}
