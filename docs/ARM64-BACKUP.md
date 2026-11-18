@@ -118,3 +118,14 @@ user's live data.
 
 See [RELEASE-CHECKLIST.md](RELEASE-CHECKLIST.md),
 [DEPLOY-PI.md](DEPLOY-PI.md) and [CLOUDFLARE.md](CLOUDFLARE.md).
+
+## Disposable-volume rollback rehearsal
+
+In addition to a temporary-file restore, the Docker workflow now
+verifies a pre-change SQLite backup by restoring into an **entirely
+new disposable Docker named volume**, booting the API with that
+copy, and proving that the original CI volume retains a simulated
+post-change value. No live deployment or user's database is changed.
+
+See [ROLLBACK-DRILL.md](ROLLBACK-DRILL.md) for the exact isolation
+model, trusted checksum requirement and operator safeguards.

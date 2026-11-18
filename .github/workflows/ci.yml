@@ -46,6 +46,9 @@ jobs:
       - name: Test SQLite backup and isolated restore safety
         run: node --test scripts/sqlite-backup.test.mjs
 
+      - name: Test isolated SQLite rollback safety
+        run: node --test scripts/sqlite-restore-drill.test.mjs
+
       - name: Test Raspberry Pi deployment preflight offline
         run: node --test scripts/pi-preflight.test.mjs
 

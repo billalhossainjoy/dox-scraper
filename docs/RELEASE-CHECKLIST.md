@@ -91,6 +91,9 @@ until the pin is refreshed. Never fabricate a lockfile or digest.
       volume without overwriting the only live copy
 - [x] Exercise WAL-consistent backup and independent restore on
       disposable SQLite databases in CI
+- [x] Rehearse a simulated rollback into a separate disposable Docker
+      volume, boot the restored API and verify the original CI volume
+      retains its post-change data
 - [ ] Test a restart with an incomplete job and inspect
       `PROCESS_RESTARTED` handling
 - [ ] Confirm a restricted `robots.txt` path is never fetched,
@@ -99,8 +102,10 @@ until the pin is refreshed. Never fabricate a lockfile or digest.
       prevents disk exhaustion
 - [ ] Document who may access Docker daemon and tunnel credentials
 - [ ] Plan secret rotation and retention/cleanup of old crawl results
-- [ ] Confirm you can roll back containers without deleting SQLite
-      data; do not run `docker compose down --volumes`
+- [ ] Confirm you can roll back containers on the **real Pi** without
+      deleting SQLite data; do not run `docker compose down --volumes`
+- [ ] Verify application image and database schema compatibility before
+      attempting a real release downgrade
 
 ## 6. Public availability gate
 

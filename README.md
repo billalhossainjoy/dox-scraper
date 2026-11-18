@@ -272,3 +272,15 @@ policy; run `scripts/verify-tunnel.mjs` separately after configuring
 Cloudflare Access.
 
 See [docs/PI-PREFLIGHT.md](docs/PI-PREFLIGHT.md).
+
+## Safe release rollback rehearsal
+
+Docker CI now restores a pre-change SQLite backup into a **new,
+disposable Docker volume**, boots the API with that restored volume
+and verifies the original test database remains unchanged. The
+restore tool requires a trusted SHA-256 checksum and refuses any
+target not explicitly marked as disposable.
+
+See [docs/ROLLBACK-DRILL.md](docs/ROLLBACK-DRILL.md) for the
+limits, backup verification steps and manual Raspberry Pi release
+gates. The rehearsal does not perform a production rollback.

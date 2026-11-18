@@ -12,6 +12,8 @@ on:
       - "scripts/verify-docker-base.sh"
       - "scripts/sqlite-backup.mjs"
       - "scripts/sqlite-backup.test.mjs"
+      - "scripts/sqlite-restore-drill.mjs"
+      - "scripts/sqlite-restore-drill.test.mjs"
   push:
     branches: [main]
     paths:
@@ -24,6 +26,8 @@ on:
       - "scripts/verify-docker-base.sh"
       - "scripts/sqlite-backup.mjs"
       - "scripts/sqlite-backup.test.mjs"
+      - "scripts/sqlite-restore-drill.mjs"
+      - "scripts/sqlite-restore-drill.test.mjs"
 
 permissions:
   contents: read
@@ -172,6 +176,102 @@ jobs:
             exit 1
           fi
           grep -q "already exists" /tmp/dox-backup-refusal.log
+
+      - name: Rehearse isolated rollback into a new disposable Docker volume
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The existing Compose volume is never mounted by the restore
+          # process. The disposable volume is created specifically for CI.
+          restore_volume="dox-ci-restore-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          restore_container="dox-ci-rollback-${GITHUB_RUN_ID}"
+          cleanup() {
+            docker rm -f "$restore_container" >/dev/null 2>&1 || true
+            docker volume rm "$restore_volume" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          docker volume create "$restore_volume" >/dev/null
+          # Initialize permissions on the NEW EMPTY volume only; the actual
+          # restore is run as the non-root worker without network access.
+          docker run --rm --network none --user 0:0 \
+            --volume "$restore_volume:/restore-drill" \
+            --entrypoint sh dox-scraper-worker:local \
+            -c 'chown 1000:1000 /restore-drill'
+          docker run --rm --network none --user 1000:1000 \
+            --volume "$restore_volume:/restore-drill" \
+            --entrypoint node dox-scraper-worker:local \
+            -e 'const fs=require("node:fs");fs.writeFileSync("/restore-drill/.dox-disposable-restore-volume","DOX_SCRAPER_DISPOSABLE_RESTORE_V1\n",{mode:0o600})'
+
+          backup_dir="$RUNNER_TEMP/dox-backup-smoke"
+          backup_hash="$(sudo sha256sum "$backup_dir/smoke.sqlite" | cut -d' ' -f1)"
+
+          # Simulate a bad upgrade on the EXISTING CI database, after the
+          # backup was made. The rollback copy must retain the old value.
+          docker compose exec -T worker node -e "
+            const {DatabaseSync}=require('node:sqlite');
+            const db=new DatabaseSync('/data/dox.sqlite');
+            db.prepare('UPDATE deployment_probe SET value=? WHERE id=1').run('after-upgrade');
+            db.close();
+          "
+
+          docker run --rm --network none --user 1000:1000 \
+            --read-only --tmpfs /tmp:rw,nosuid,size=32m \
+            --cap-drop ALL --security-opt no-new-privileges \
+            --volume "$restore_volume:/restore-drill" \
+            --volume "$backup_dir:/backups:ro" \
+            --entrypoint node dox-scraper-worker:local \
+            /app/scripts/sqlite-restore-drill.mjs \
+            --backup /backups/smoke.sqlite \
+            --target-dir /restore-drill \
+            --sha256 "$backup_hash"
+
+          # The restored DB is examined in its NEW volume. No production
+          # volume is mounted in this container.
+          docker run --rm --network none --user 1000:1000 \
+            --volume "$restore_volume:/data:ro" \
+            --entrypoint node dox-scraper-worker:local -e "
+            const {DatabaseSync}=require('node:sqlite');
+            const db=new DatabaseSync('/data/dox.sqlite',{readOnly:true});
+            const result=db.prepare('SELECT value FROM deployment_probe WHERE id=1').get();
+            if(result?.value !== 'persisted') process.exit(1);
+            db.close();
+          "
+
+          # Boot the same API against only the disposable rollback database,
+          # without host ports or any network interface.
+          token="$(openssl rand -hex 32)"
+          docker run --detach --name "$restore_container" \
+            --network none --user 1000:1000 \
+            --read-only --tmpfs /tmp:rw,nosuid,size=32m \
+            --cap-drop ALL --security-opt no-new-privileges \
+            --volume "$restore_volume:/data" \
+            -e NODE_ENV=production -e PORT=3000 \
+            -e DOX_ENABLE_CRAWL_API=false \
+            -e DOX_ENABLE_BROWSER_RENDERING=false \
+            -e "DOX_SCRAPER_API_KEY=$token" \
+            dox-scraper-api:local
+
+          ready=false
+          for i in $(seq 1 30); do
+            if docker exec "$restore_container" node -e "
+              fetch('http://127.0.0.1:3000/health',{signal:AbortSignal.timeout(2500)})
+              .then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))" >/dev/null 2>&1; then
+              ready=true
+              break
+            fi
+            sleep 2
+          done
+          test "$ready" = true
+
+          # Original CI DB was not rolled back. Both values must differ.
+          docker compose exec -T worker node -e "
+            const {DatabaseSync}=require('node:sqlite');
+            const db=new DatabaseSync('/data/dox.sqlite',{readOnly:true});
+            const result=db.prepare('SELECT value FROM deployment_probe WHERE id=1').get();
+            if(result?.value !== 'after-upgrade') process.exit(1);
+            db.close();
+          "
 
       - name: Deployment logs on failure
         if: failure()
