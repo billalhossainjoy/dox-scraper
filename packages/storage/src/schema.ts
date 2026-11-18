@@ -1,6 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 
-const LATEST_VERSION = 1;
+const LATEST_VERSION = 2;
 
 /**
  * Apply versioned schema changes atomically. Never blindly downgrade an
@@ -101,6 +101,19 @@ export function migrate(db: DatabaseSync): number {
       db.prepare("INSERT INTO schema_migrations(version, applied_at) VALUES(?, ?)")
         .run(1, new Date().toISOString());
       db.exec("PRAGMA user_version = 1");
+    }
+    if (version < 2) {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS crawl_job_owners (
+          job_id TEXT PRIMARY KEY REFERENCES crawl_jobs(id) ON DELETE CASCADE,
+          owner_digest TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_crawl_job_owners_digest
+          ON crawl_job_owners(owner_digest);
+      `);
+      db.prepare("INSERT INTO schema_migrations(version,applied_at) VALUES(?,?)")
+        .run(2, new Date().toISOString());
+      db.exec("PRAGMA user_version = 2");
     }
     db.exec("COMMIT");
   } catch (error) {
