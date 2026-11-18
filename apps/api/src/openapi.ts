@@ -115,6 +115,17 @@ export const openApiDocument = {
           contentText: { type: "string" },
           fetchedAt: { type: "string", format: "date-time" },
           redirectCount: { type: "integer", minimum: 0 },
+          cache: {
+            type: "object",
+            description: "Optional response-cache metadata for the default API service",
+            properties: {
+              status: { type: "string", enum: ["MISS", "HIT", "NOT_MODIFIED", "REFRESHED", "BYPASS"] },
+              contentSha256: { type: ["string", "null"], description: "SHA-256 fingerprint of downloaded HTML" },
+              changed: { type: "boolean" },
+              cachedAt: { type: ["string", "null"], format: "date-time" },
+              checkedAt: { type: "string", format: "date-time" },
+            },
+          },
         },
       },
     },
