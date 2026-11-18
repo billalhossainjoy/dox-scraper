@@ -87,8 +87,10 @@ export async function restoreDisposableSnapshot({
   if (originalHash !== expectedSha256) {
     throw new Error("Backup checksum does not match trusted SHA-256");
   }
-  // Validate the source before any write to the disposable volume.
-  const validated = verifyDoxDatabase(source);
+  // A trusted checksum authenticates the read-only source bytes.
+  // WAL-mode backups may require SQLite to create -shm while opening;
+  // do not open SQL on the read-only backup mount. Instead verify
+  // integrity/schema only after copying to a writable disposable volume.
   const destination = join(root, "dox.sqlite");
   let copied = false;
   try {
@@ -98,9 +100,6 @@ export async function restoreDisposableSnapshot({
       throw new Error("Restored file checksum mismatch");
     }
     const restored = verifyDoxDatabase(destination);
-    if (restored.schemaVersion !== validated.schemaVersion) {
-      throw new Error("Restored SQLite schema version mismatch");
-    }
     return {
       schemaVersion: restored.schemaVersion,
       sha256: originalHash,
@@ -154,7 +153,6 @@ if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.m
       "Restored SQLite integrity check failed",
       "Restored SQLite foreign keys are invalid",
       "Restored file checksum mismatch",
-      "Restored SQLite schema version mismatch",
       "Backup must be a regular file and target must be a real directory",
     ]);
     const detail = known.has(error?.message) ? error.message
