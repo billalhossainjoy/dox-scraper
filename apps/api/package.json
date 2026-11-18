@@ -17,7 +17,10 @@
     "hono": "^4.10.6",
     "zod": "^4.1.12",
     "@dox-scraper/cache": "workspace:*",
-    "@dox-scraper/browser": "workspace:*"
+    "@dox-scraper/browser": "workspace:*",
+    "@dox-scraper/crawler": "workspace:*",
+    "@dox-scraper/storage": "workspace:*",
+    "robots-parser": "^3.0.1"
   },
   "devDependencies": {
     "@types/node": "^24.10.1",
