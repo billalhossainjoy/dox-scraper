@@ -213,7 +213,7 @@ export class DomainRateLimiter {
   }
 
   /** Acquire a per-hostname lease. Call release() in a finally block. */
-  acquire(url: string, signal?: AbortSignal): Promise<DomainPermit> {
+  async acquire(url: string, signal?: AbortSignal): Promise<DomainPermit> {
     const host = hostnameOf(url);
     if (signal?.aborted) return Promise.reject(aborted(signal));
     const state = this.state(host);
