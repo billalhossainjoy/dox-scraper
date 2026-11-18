@@ -8,12 +8,12 @@ ENV CI=true
 WORKDIR /app
 RUN npm install --global pnpm@12.18.0
 
-# The project currently uses a pnpm workspace without a committed lockfile.
-# Install once and compile all workspace packages before slimming runtime deps.
+# A committed workspace pnpm-lock.yaml pins the dependency graph.
+# Frozen installs fail rather than silently updating transitive versions.
 COPY . .
-RUN pnpm install --no-frozen-lockfile \
+RUN pnpm install --frozen-lockfile \
     && pnpm build \
-    && pnpm install --prod --no-frozen-lockfile
+    && pnpm install --prod --frozen-lockfile
 
 FROM node:${NODE_TAG} AS runtime
 ENV NODE_ENV=production
@@ -24,6 +24,7 @@ RUN mkdir -p /data && chown node:node /data
 
 COPY --from=build --chown=node:node /app/package.json ./package.json
 COPY --from=build --chown=node:node /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
+COPY --from=build --chown=node:node /app/pnpm-lock.yaml ./pnpm-lock.yaml
 COPY --from=build --chown=node:node /app/node_modules ./node_modules
 COPY --from=build --chown=node:node /app/apps ./apps
 COPY --from=build --chown=node:node /app/packages ./packages
