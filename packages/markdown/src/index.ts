@@ -24,6 +24,42 @@ function resolveHttpUrl(raw: string | undefined, base: URL): string | null {
 }
 
 /**
+ * Standalone Markdown conversion must not pass raw inline SVG through to
+ * a renderer. Keep only a short accessible label as inert text.
+ */
+function replaceInlineSvg($: ReturnType<typeof load>): void {
+  $("svg").each((_, node) => {
+    const svg = $(node);
+    const role = (svg.attr("role") ?? "").toLowerCase().trim();
+    const style = (svg.attr("style") ?? "").toLowerCase();
+    if (svg.attr("aria-hidden")?.toLowerCase() === "true" ||
+        ["presentation", "none"].includes(role) ||
+        /(?:^|;)\s*(?:display\s*:\s*none|visibility\s*:\s*hidden)(?:;|$)/.test(style)) {
+      svg.remove();
+      return;
+    }
+    svg.find("script,style,foreignObject,foreignobject").remove();
+    const candidates = [
+      svg.attr("aria-label"),
+      svg.children("title").first().text(),
+      svg.children("desc").first().text(),
+    ];
+    const label = candidates.map((value) => (value ?? "").replace(/\s+/g, " ").trim())
+      .find(Boolean);
+    if (!label) {
+      svg.remove();
+      return;
+    }
+    const clean = Array.from(label).filter((character) => {
+      const code = character.charCodeAt(0);
+      return code >= 32 && code !== 127;
+    }).join("").slice(0, 160).trim();
+    if (clean) svg.replaceWith($("<span></span>").text("SVG image: " + clean));
+    else svg.remove();
+  });
+}
+
+/**
  * Converts extracted HTML into readable Markdown for a permitted webpage.
  * HTML and linked resources are untrusted; this function does not retrieve
  * external resources, execute JavaScript, or perform browser rendering.
@@ -50,6 +86,7 @@ export function htmlToMarkdown(html: string, options: MarkdownOptions): string {
   if (!html.trim()) return "";
 
   const $ = load(html);
+  replaceInlineSvg($);
   $("script,style,noscript,iframe,object,embed,form,svg,canvas,template").remove();
 
   // Relative links/images must resolve against the final page URL, not
