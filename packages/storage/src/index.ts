@@ -151,6 +151,7 @@ export class SqliteCrawlStore {
   private readonly maxCacheBodyBytes: number;
   private readonly maxCacheBytes: number;
   private readonly maxCacheEntries: number;
+  private accessClock = 0;
 
   constructor(options: SqliteStoreOptions) {
     if (!options.path?.trim() || options.path.includes("\0")) {
@@ -179,6 +180,11 @@ export class SqliteCrawlStore {
       this.db.close();
       throw error;
     }
+  }
+
+  private nextAccessTime(): number {
+    this.accessClock = Math.max(Date.now(), this.accessClock + 1);
+    return this.accessClock;
   }
 
   close(): void {
@@ -399,7 +405,7 @@ export class SqliteCrawlStore {
       ).run(
         entry.cacheKey, entry.url, entry.html, entry.htmlSha256,
         entry.etag, entry.lastModified, entry.cachedAt, entry.expiresAtMs,
-        entry.bodyBytes, Date.now(),
+        entry.bodyBytes, this.nextAccessTime(),
       );
       this.pruneExpiredCache();
       while (true) {
@@ -409,7 +415,7 @@ export class SqliteCrawlStore {
         if (stats.entries <= this.maxCacheEntries && stats.bytes <= this.maxCacheBytes) break;
         this.db.exec(
           "DELETE FROM cache_entries WHERE cache_key=" +
-          "(SELECT cache_key FROM cache_entries ORDER BY last_accessed_ms ASC,cached_at ASC LIMIT 1)",
+          "(SELECT cache_key FROM cache_entries ORDER BY last_accessed_ms ASC,rowid ASC LIMIT 1)",
         );
       }
       this.db.exec("COMMIT");
@@ -426,7 +432,7 @@ export class SqliteCrawlStore {
     ).get(cacheKey, Date.now()) as unknown as CacheRow | undefined;
     if (!row) return null;
     this.db.prepare("UPDATE cache_entries SET last_accessed_ms=? WHERE cache_key=?")
-      .run(Date.now(), cacheKey);
+      .run(this.nextAccessTime(), cacheKey);
     return {
       cacheKey: row.cache_key,
       url: row.url,
@@ -452,3 +458,5 @@ export class SqliteCrawlStore {
     return Number(result.changes) > 0;
   }
 }
+
+export { createPersistedCrawlJob } from "./crawl.js";
