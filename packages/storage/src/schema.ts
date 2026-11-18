@@ -80,7 +80,8 @@ export function migrate(db: DatabaseSync): number {
           last_modified TEXT,
           cached_at TEXT NOT NULL,
           expires_at_ms INTEGER NOT NULL,
-          body_bytes INTEGER NOT NULL CHECK (body_bytes >= 0)
+          body_bytes INTEGER NOT NULL CHECK (body_bytes >= 0),
+          last_accessed_ms INTEGER NOT NULL
         );
 
         CREATE INDEX IF NOT EXISTS idx_jobs_state_updated
@@ -89,6 +90,8 @@ export function migrate(db: DatabaseSync): number {
           ON crawl_pages(job_id, ordinal);
         CREATE INDEX IF NOT EXISTS idx_cache_expiry
           ON cache_entries(expires_at_ms);
+        CREATE INDEX IF NOT EXISTS idx_cache_lru
+          ON cache_entries(last_accessed_ms);
 
         CREATE TABLE IF NOT EXISTS schema_migrations (
           version INTEGER PRIMARY KEY,
