@@ -81,6 +81,8 @@ export interface CrawlJobOptions {
   loadPage: (url: string, context: CrawlRequestContext) => Promise<CrawlLoadedPage>;
   /** Process/store a page; HTML is never retained in the job snapshot. */
   onPage?: (page: CrawlLoadedPage & { url: string; depth: number }, signal: AbortSignal) => Promise<void>;
+  /** Synchronous durable checkpoint, called at every job/page state transition. */
+  onSnapshot?: (snapshot: CrawlSnapshot) => void;
 }
 
 function boundedInteger(value: number, label: string, min: number, max: number): number {
@@ -111,8 +113,8 @@ function waitFor<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
  * In-memory, sequential breadth-first crawl job. It cannot access the network
  * on its own, and cannot be restarted after completion or cancellation.
  *
- * No persistence or API endpoints are included; those are separate roadmap
- * items. All state counters reflect individual queued URL records.
+ * Persistence is optional through onSnapshot/onPage hooks. API endpoints
+ * remain a separate roadmap item. All counters reflect queued URL records.
  */
 export class CrawlJob {
   readonly id = randomUUID();
@@ -162,6 +164,10 @@ export class CrawlJob {
     this.seen = new Set([this.seedUrl]);
   }
 
+  private publish(): void {
+    this.options.onSnapshot?.(this.snapshot());
+  }
+
   snapshot(): CrawlSnapshot {
     const counts = {
       completed: 0, failed: 0, skipped: 0, cancelled: 0, queued: 0, active: 0,
@@ -191,6 +197,7 @@ export class CrawlJob {
     this.state = "cancelled";
     if (!this.finishedAt) this.finishedAt = new Date().toISOString();
     this.finishPending("cancelled", "CANCELLED");
+    this.publish();
   }
 
   start(): Promise<CrawlSnapshot> {
@@ -198,6 +205,7 @@ export class CrawlJob {
     if (this.state !== "queued") return Promise.resolve(this.snapshot());
     this.state = "running";
     this.startedAt = new Date().toISOString();
+    this.publish();
     this.work = this.run();
     return this.work;
   }
@@ -229,6 +237,8 @@ export class CrawlJob {
 
       item.state = "active";
       this.attemptCount += 1;
+      this.publish();
+      try {
       const timeout = AbortSignal.timeout(this.requestTimeoutMs);
       const signal = AbortSignal.any([this.controller.signal, timeout]);
 
@@ -363,6 +373,9 @@ export class CrawlJob {
       } finally {
         if (permit) permit.release();
       }
+      } finally {
+        this.publish();
+      }
     }
 
     if (this.controller.signal.aborted || this.state === "cancelled") {
@@ -375,6 +388,7 @@ export class CrawlJob {
       this.finishPending("skipped", "PAGE_LIMIT_REACHED");
     }
     this.finishedAt ??= new Date().toISOString();
+    this.publish();
     return this.snapshot();
   }
 }
