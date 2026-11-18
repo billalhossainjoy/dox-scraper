@@ -201,7 +201,7 @@ jobs:
           docker run --rm --network none --user 1000:1000 \
             --volume "$restore_volume:/restore-drill" \
             --entrypoint node dox-scraper-worker:local \
-            -e 'const fs=require("node:fs");fs.writeFileSync("/restore-drill/.dox-disposable-restore-volume","DOX_SCRAPER_DISPOSABLE_RESTORE_V1\\n",{mode:0o600})'
+            -e 'const fs=require("node:fs");fs.writeFileSync("/restore-drill/.dox-disposable-restore-volume","DOX_SCRAPER_DISPOSABLE_RESTORE_V1\n",{mode:0o600})'
 
           backup_dir="$RUNNER_TEMP/dox-backup-smoke"
           backup_hash="$(sha256sum "$backup_dir/smoke.sqlite" | cut -d' ' -f1)"
