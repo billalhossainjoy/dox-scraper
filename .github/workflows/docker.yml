@@ -10,6 +10,8 @@ on:
       - "packages/storage/**"
       - ".github/workflows/docker.yml"
       - "scripts/verify-docker-base.sh"
+      - "scripts/check-container-vulnerabilities.mjs"
+      - "scripts/check-container-vulnerabilities.test.mjs"
       - "scripts/sqlite-backup.mjs"
       - "scripts/sqlite-backup.test.mjs"
       - "scripts/sqlite-restore-drill.mjs"
@@ -24,6 +26,8 @@ on:
       - "packages/storage/**"
       - ".github/workflows/docker.yml"
       - "scripts/verify-docker-base.sh"
+      - "scripts/check-container-vulnerabilities.mjs"
+      - "scripts/check-container-vulnerabilities.test.mjs"
       - "scripts/sqlite-backup.mjs"
       - "scripts/sqlite-backup.test.mjs"
       - "scripts/sqlite-restore-drill.mjs"
@@ -59,6 +63,39 @@ jobs:
 
       - name: Build API and worker images
         run: docker compose -f compose.yaml build api worker
+
+      # v0.36.0 was verified as a signed official GitHub release;
+      # pin the exact commit, never a floating Trivy action tag.
+      - name: Scan API container for HIGH and CRITICAL advisories
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: dox-scraper-api:local
+          version: v0.76.1
+          scan-type: image
+          scanners: vuln
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
+          format: json
+          output: trivy-api.json
+          exit-code: "0"
+          cache: "false"
+
+      - name: Scan worker container for HIGH and CRITICAL advisories
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: dox-scraper-worker:local
+          version: v0.76.1
+          scan-type: image
+          scanners: vuln
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
+          format: json
+          output: trivy-worker.json
+          exit-code: "0"
+          cache: "false"
+
+      - name: Gate actionable CRITICAL container vulnerabilities
+        run: node scripts/check-container-vulnerabilities.mjs trivy-api.json trivy-worker.json
 
       - name: Reject unsafe production settings before opening the API port
         shell: bash
