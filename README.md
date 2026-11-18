@@ -99,9 +99,9 @@ individual target responses are limited to at most 2 MiB. The fetcher blocks
 local/private/reserved IP destinations and validates each redirect.
 Only HTML and XHTML responses are converted to Markdown.
 
-**This is not yet a public crawler service.** The MVP does not implement
-robots.txt enforcement, per-domain pacing, persistent rate limiting, caching,
-or browser rendering. Keep the API bound to localhost and do not expose
+**This is not yet a public crawler service.** The MVP does not yet implement robots.txt access-rule enforcement or
+persistent, distributed crawler coordination. It includes an optional
+network-restricted Playwright renderer, disabled by default. Keep the API bound to localhost and do not expose
 it publicly through Cloudflare Tunnel until those controls are added.
 Respect each target website's terms and access restrictions.
 
@@ -125,3 +125,15 @@ addresses (including cloud metadata endpoints), validates DNS answers at
 connection time and checks each redirect destination. It supports abort
 signals and an overall timeout across redirects. For crawler safety
 details see [docs/CRAWLING.md](docs/CRAWLING.md).
+
+## Optional browser rendering
+
+A Playwright Chromium renderer is available only when an authenticated
+request explicitly supplies `"options": { "render": "browser" }`
+and the operator opts in with a Chromium path and an exact origin allowlist.
+It is disabled by default, limits browser work to one active render per
+process, and blocks external subresources. Browser execution requires
+a **network-isolated** worker/container before enabling it.
+
+See [docs/BROWSER.md](docs/BROWSER.md) for configuration, limitations,
+security boundaries, and optional hardware smoke tests.
