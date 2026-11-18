@@ -22,19 +22,20 @@ A green CI run confirms these synthetic and container-level checks
 but **does not** mean Cloudflare, the Raspberry Pi or a real website
 has been tested.
 
-## 2. Reproducible dependencies — not yet completed
+## 2. Reproducible dependencies — locked, with further release checks
 
-- [ ] Commit a generated `pnpm-lock.yaml` after reviewing dependency
-      updates and verifying compatibility with pnpm 12.18.0
-- [ ] Change CI and Docker builds to `pnpm install --frozen-lockfile`
-      after the lockfile is verified
+- [x] Commit a genuine pnpm 12.18.0-generated `pnpm-lock.yaml`
+      covering all workspace importers
+- [x] Enforce `pnpm install --frozen-lockfile` in CI and Docker builds
+      and fail on manifest/lockfile drift
 - [ ] Review dependency vulnerabilities, license terms and any
       upstream security advisories before a public deployment
 - [ ] Record a pinned image digest and verified release commit/tag
       for repeatable rollback
 
-**Do not** fabricate a lockfile by hand or claim reproducible images
-without the dependencies being pinned.
+The committed lockfile pins npm dependencies, but Docker's base Node
+image still uses a moving tag; pinning its digest remains an additional
+release task. Never hand-edit or fabricate a lockfile.
 
 ## 3. Real Raspberry Pi validation — operator must perform
 

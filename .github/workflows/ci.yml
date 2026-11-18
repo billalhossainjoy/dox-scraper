@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [main, "feat/**"]
+    branches: [main, "feat/**", "chore/**"]
 
 permissions:
   contents: read
@@ -27,7 +27,7 @@ jobs:
           node-version: 24
 
       - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       # The Hono API imports declarations and runtime code from the workspace
       # packages, so build those packages before TypeScript checks and tests.

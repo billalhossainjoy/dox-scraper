@@ -114,10 +114,11 @@ docker buildx build --platform linux/arm64 \
 ```
 
 The Dockerfile uses Node 24 to meet `node:sqlite` requirements.
-The root pnpm workspace currently does **not** commit a lockfile;
-image builds use `pnpm install --no-frozen-lockfile`.
-For reproducible production releases, add and maintain a pinned
-`pnpm-lock.yaml` in a subsequent release-hardening step.
+The repository now commits `pnpm-lock.yaml` generated with pinned
+pnpm 12.18.0. Docker and CI use `pnpm install --frozen-lockfile`.
+Dependency updates must update the lockfile intentionally. The
+`node:24-bookworm-slim` base image still uses a moving tag; audit and
+pin an immutable image digest before claiming fully reproducible images.
 
 ## 4. Check the API and worker health
 
