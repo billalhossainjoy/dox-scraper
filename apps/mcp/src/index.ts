@@ -12,6 +12,8 @@ async function main(): Promise<void> {
   const client = new DoxRestClient({
     apiUrl: process.env.DOX_MCP_API_URL ?? "http://127.0.0.1:3000",
     apiKey: process.env.DOX_SCRAPER_API_KEY ?? "",
+    accessClientId: process.env.DOX_CF_ACCESS_CLIENT_ID ?? "",
+    accessClientSecret: process.env.DOX_CF_ACCESS_CLIENT_SECRET ?? "",
   });
   await serveStdio(() => createMcpServer(client));
 }
