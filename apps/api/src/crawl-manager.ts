@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { createRequire } from "node:module";
 import {
   CrawlJob,
   DomainRateLimiter,
@@ -8,12 +9,20 @@ import {
 } from "@dox-scraper/crawler";
 import { fetchPage, validateTargetUrl, type FetchPageResult } from "@dox-scraper/fetcher";
 import { createPersistedCrawlJob, type SqliteCrawlStore } from "@dox-scraper/storage";
-import robotsParser from "robots-parser";
+// robots-parser@3.0.1 is CommonJS with incorrect published NodeNext
+// declarations. Load its real callable CJS export explicitly.
+const robotsParser = createRequire(import.meta.url)("robots-parser") as (
+  url: string,
+  contents: string,
+) => {
+  isAllowed: (url: string, agent?: string) => boolean | undefined;
+  getCrawlDelay: (agent?: string) => number | undefined;
+};
 
 export interface CrawlRequest {
   url: string;
-  maxPages?: number;
-  maxDepth?: number;
+  maxPages?: number | undefined;
+  maxDepth?: number | undefined;
 }
 
 export interface CrawlManagerOptions {
