@@ -67,11 +67,11 @@ function get(result, id) {
   return item;
 }
 
-test("healthy Pi deployment produces 12 PASS checks plus a Cloudflare warning", () => {
+test("healthy Pi deployment produces 13 PASS checks plus a Cloudflare warning", () => {
   const facts = fixture();
   const result = evaluatePiDeployment(facts);
   assert.equal(result.failed, 0);
-  assert.equal(result.passed, 12);
+  assert.equal(result.passed, 13);
   assert.equal(result.warnings, 1);
   assert.equal(get(result, "cloudflare-live-policy").status, "WARN");
   assert.equal(JSON.stringify(result).includes("sensitive-test-key-value"), false);
