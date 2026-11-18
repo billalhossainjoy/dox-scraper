@@ -217,7 +217,7 @@ browser execution disabled.
 
 GitHub Docker CI tests safe startup *and* rejects weak credentials.
 The Raspberry Pi hardware test, live Cloudflare Access test,
-SSD backup/restore drill and Docker base-image digest pin remain
+SSD backup/restore drill and a verified release tag remain
 separate release gates. Follow [docs/RELEASE-CHECKLIST.md](docs/RELEASE-CHECKLIST.md).
 
 ## Reproducible pnpm dependency installs
@@ -239,6 +239,7 @@ git add package.json apps packages pnpm-lock.yaml
 ```
 
 Review the lockfile changes as part of the PR. Never edit integrity
-hashes manually. Frozen installs pin npm packages, but the
-`node:24-bookworm-slim` Docker base image tag still requires a
-separately audited immutable digest for complete image reproducibility.
+hashes manually. The Dockerfile also pins the official Node 24
+**multi-platform manifest-index digest** for both build and runtime.
+The Docker CI workflow checks AMD64 and ARM64 availability before
+building, and the Pi deployment documentation explains digest upgrades.
