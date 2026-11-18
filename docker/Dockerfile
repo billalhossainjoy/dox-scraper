@@ -1,8 +1,11 @@
 # syntax=docker/dockerfile:1.7
-# The official Node.js 24 image provides linux/arm64 and linux/amd64.
-# Build TypeScript on the build host's architecture; compiled JS is portable.
-ARG NODE_TAG=24-bookworm-slim
-FROM --platform=$BUILDPLATFORM node:${NODE_TAG} AS build
+# OCI multi-architecture index digest verified against the official Docker registry.
+# Includes linux/amd64 and linux/arm64 (Raspberry Pi OS 64-bit).
+# Tag is descriptive only; digest pins actual image contents.
+ARG NODE_IMAGE=docker.io/library/node:24-bookworm-slim@sha256:dc26ae92c9fb15cf6b1d63e20f0944b2efe0f115b20e00be48fb23fceb061c54
+# Build on the TARGET platform, not BUILDPLATFORM. pnpm may install native
+# optional packages (e.g. esbuild) and must not copy x86 binaries into ARM64.
+FROM ${NODE_IMAGE} AS build
 
 ENV CI=true
 WORKDIR /app
@@ -15,7 +18,7 @@ RUN pnpm install --frozen-lockfile \
     && pnpm build \
     && pnpm install --prod --frozen-lockfile
 
-FROM node:${NODE_TAG} AS runtime
+FROM ${NODE_IMAGE} AS runtime
 ENV NODE_ENV=production
 WORKDIR /app
 
