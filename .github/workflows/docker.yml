@@ -29,6 +29,7 @@ jobs:
       # Test-only value; no user/production secrets are used by CI.
       DOX_SCRAPER_API_KEY: ci-only-not-a-production-credential
       DOX_ENABLE_CRAWL_API: "false"
+      DOX_PUBLIC_HOSTNAME: scraper.ci.example.test
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -56,6 +57,29 @@ jobs:
           done
           docker compose logs --tail=200
           exit 1
+
+      - name: Verify host restrictions and API bearer independently
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsS http://127.0.0.1:3000/health >/dev/null
+          bad_host=$(curl -sS -o /dev/null -w '%{http_code}' \
+            -H 'Host: unapproved.example.test' http://127.0.0.1:3000/health)
+          test "$bad_host" = "421"
+          no_token=$(curl -sS -o /dev/null -w '%{http_code}' \
+            -X POST -H 'Content-Type: application/json' \
+            --data '{}' http://127.0.0.1:3000/v1/scrape)
+          test "$no_token" = "401"
+          bad_token=$(curl -sS -o /dev/null -w '%{http_code}' \
+            -X POST -H 'Content-Type: application/json' \
+            -H 'Authorization: Bearer deliberately-invalid' \
+            --data '{}' http://127.0.0.1:3000/v1/scrape)
+          test "$bad_token" = "401"
+          good_token=$(curl -sS -o /dev/null -w '%{http_code}' \
+            -X POST -H 'Content-Type: application/json' \
+            -H "Authorization: Bearer $DOX_SCRAPER_API_KEY" \
+            --data '{}' http://127.0.0.1:3000/v1/scrape)
+          test "$good_token" = "400"
 
       - name: Verify SQLite volume survives container recreation
         shell: bash
