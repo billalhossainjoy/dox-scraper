@@ -42,3 +42,8 @@ jobs:
 
       - name: Test
         run: pnpm test
+
+      - name: Validate Docker Compose deployment
+        env:
+          DOX_SCRAPER_API_KEY: ci-not-a-real-secret
+        run: docker compose -f compose.yaml config --quiet
