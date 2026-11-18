@@ -16,7 +16,7 @@ restricted than a general restore utility:
   database files, extra files, overlapping paths and invalid SQLite
   schemas.
 - It checks `PRAGMA integrity_check`, `foreign_key_check` and the
-  expected Dox table set before and after copying.
+  expected Dox table set on the disposable copy after checksum verification.
 - It uses exclusive creation (`COPYFILE_EXCL`), so an existing file
   is never replaced, and removes its newly copied file on failure.
 - The command-line entry point **only accepts** the target mount path
