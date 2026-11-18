@@ -71,6 +71,7 @@ export function createMcpServer(api: DoxApi): McpServer {
       maxCharacters: z.number().int().min(1).max(60_000).default(20_000),
     }).strict(),
   }, async ({ url, maxCharacters }) => toolResult(async () => {
+    validateTargetUrl(url);
     const page = scrapeResult.parse(await api.post("/v1/scrape", {
       url, options: {
         timeoutMs: 15_000,
@@ -99,6 +100,7 @@ export function createMcpServer(api: DoxApi): McpServer {
   }, async ({ url, maxLinks }) => toolResult(async () => {
     // This makes exactly one authenticated scrape request; same-origin
     // mapping itself is offline and cannot request arbitrary discovered URLs.
+    validateTargetUrl(url);
     const page = discoveredLinks.parse(await api.post("/v1/scrape", {
       url, options: {
         timeoutMs: 15_000,
@@ -131,6 +133,7 @@ export function createMcpServer(api: DoxApi): McpServer {
       maxDepth: z.number().int().min(0).max(3).default(1),
     }).strict(),
   }, async ({ url, maxPages, maxDepth }) => toolResult(async () => {
+    validateTargetUrl(url);
     const snapshot = crawlSnapshot.parse(await api.post("/v1/crawl", {
       url, maxPages, maxDepth,
     }));
