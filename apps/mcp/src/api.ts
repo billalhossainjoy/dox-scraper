@@ -21,6 +21,9 @@ export class DoxApiError extends Error {
 export interface DoxApiOptions {
   apiUrl?: string;
   apiKey: string;
+  /** Optional Cloudflare Access service token for remote HTTPS routes. */
+  accessClientId?: string;
+  accessClientSecret?: string;
   timeoutMs?: number;
   maxResponseBytes?: number;
   transport?: typeof fetch;
@@ -53,6 +56,8 @@ export function parseApiOrigin(input: string): string {
 export class DoxRestClient implements DoxApi {
   private readonly origin: string;
   private readonly apiKey: string;
+  private readonly accessClientId: string | null;
+  private readonly accessClientSecret: string | null;
   private readonly timeoutMs: number;
   private readonly maxResponseBytes: number;
   private readonly transport: typeof fetch;
@@ -63,6 +68,21 @@ export class DoxRestClient implements DoxApi {
     }
     this.origin = parseApiOrigin(options.apiUrl ?? "http://127.0.0.1:3000");
     this.apiKey = options.apiKey;
+    const accessId = options.accessClientId ?? "";
+    const accessSecret = options.accessClientSecret ?? "";
+    if (Boolean(accessId) !== Boolean(accessSecret)) {
+      throw new TypeError("Both Cloudflare Access service-token fields must be provided");
+    }
+    if ([accessId, accessSecret].some((value) =>
+      value.length > 2048 || [...value].some((char) =>
+        char.charCodeAt(0) < 32 || char.charCodeAt(0) === 127))) {
+      throw new TypeError("Invalid Cloudflare Access credential value");
+    }
+    if (accessId && !this.origin.startsWith("https://")) {
+      throw new TypeError("Cloudflare Access credentials require a remote HTTPS API endpoint");
+    }
+    this.accessClientId = accessId || null;
+    this.accessClientSecret = accessSecret || null;
     this.timeoutMs = boundedInt(options.timeoutMs ?? 30_000, 1000, 60_000, "timeoutMs");
     this.maxResponseBytes = boundedInt(
       options.maxResponseBytes ?? 1024 * 1024,
@@ -87,6 +107,10 @@ export class DoxRestClient implements DoxApi {
     const headers: Record<string, string> = {
       authorization: "Bearer " + this.apiKey,
       accept: "application/json",
+      ...(this.accessClientId && this.accessClientSecret ? {
+        "CF-Access-Client-Id": this.accessClientId,
+        "CF-Access-Client-Secret": this.accessClientSecret,
+      } : {}),
     };
     if (method === "POST") headers["content-type"] = "application/json";
 
