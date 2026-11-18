@@ -284,3 +284,16 @@ target not explicitly marked as disposable.
 See [docs/ROLLBACK-DRILL.md](docs/ROLLBACK-DRILL.md) for the
 limits, backup verification steps and manual Raspberry Pi release
 gates. The rehearsal does not perform a production rollback.
+
+## Accessible SVG text extraction
+
+Inline SVG graphics with an accessible `aria-label`, `title` or
+`desc` are represented as bounded, escaped text. Hidden, decorative
+or unlabeled SVG graphics are removed; executable SVG XML is never
+kept. Linked `<img src="/images/graph.svg">` images are resolved
+into safe HTTP(S) Markdown image URLs without downloading or
+executing the SVG file. Both the extractor and standalone Markdown
+converter enforce these limits.
+
+See [docs/SVG-EXTRACTION.md](docs/SVG-EXTRACTION.md) for details,
+security boundaries and unsupported SVG rendering/OCR features.
