@@ -93,6 +93,8 @@ function aborted(signal?: AbortSignal): Error {
 export function parseRetryAfter(value: string | null | undefined, now = Date.now()): number | null {
   const text = value?.trim();
   if (!text) return null;
+  // Reject signed numeric values rather than misreading them as dates.
+  if (/^[+-]\d+$/.test(text)) return null;
   if (/^\d+$/.test(text)) {
     const seconds = Number(text);
     return Number.isFinite(seconds) && seconds <= Number.MAX_SAFE_INTEGER / 1000
