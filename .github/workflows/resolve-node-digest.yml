@@ -1,0 +1,32 @@
+name: Resolve Node base image digest
+
+# One-time registry probe; removed once the multi-platform index digest
+# is recorded in the Dockerfile. No registry login or repository write.
+on:
+  push:
+    branches: [chore/023-docker-base-digest]
+    paths: [".github/workflows/resolve-node-digest.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Inspect the real multi-platform manifest index
+        shell: bash
+        run: |
+          set -euo pipefail
+          image=docker.io/library/node:24-bookworm-slim
+          docker buildx version
+          docker buildx imagetools inspect "$image"
+          details="$(docker buildx imagetools inspect "$image")"
+          digest="$(printf '%s\n' "$details" | awk '/^Digest:/ { print $2; exit }')"
+          [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]]
+          raw="$(docker buildx imagetools inspect --raw "$image")"
+          printf '%s\n' "$raw" | jq -e '
+            [ .manifests[] | select(.platform.os == "linux") | .platform.architecture ] |
+            ((index("amd64") != null) and (index("arm64") != null))
+          '
+          echo "VERIFIED_MULTIARCH_INDEX_DIGEST=$digest"
