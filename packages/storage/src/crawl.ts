@@ -14,11 +14,10 @@ export function createPersistedCrawlJob(
   store: SqliteCrawlStore,
   options: CrawlJobOptions,
 ): CrawlJob {
-  let job: CrawlJob;
   const externalSnapshot = options.onSnapshot;
   const externalPage = options.onPage;
 
-  job = new CrawlJob({
+  const job = new CrawlJob({
     ...options,
     onSnapshot(snapshot) {
       store.saveSnapshot(snapshot);
