@@ -31,6 +31,7 @@ COPY --from=build --chown=node:node /app/pnpm-lock.yaml ./pnpm-lock.yaml
 COPY --from=build --chown=node:node /app/node_modules ./node_modules
 COPY --from=build --chown=node:node /app/apps ./apps
 COPY --from=build --chown=node:node /app/packages ./packages
+COPY --from=build --chown=node:node /app/scripts/sqlite-backup.mjs ./scripts/sqlite-backup.mjs
 
 USER node
 
