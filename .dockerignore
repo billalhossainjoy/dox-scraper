@@ -1,0 +1,26 @@
+# Never copy secrets, credentials, local databases or mounted storage.
+.git
+.github
+.env
+.env.*
+!.env.example
+storage
+**/*.sqlite
+**/*.sqlite-shm
+**/*.sqlite-wal
+
+# All JS/TS output is built inside the image.
+**/node_modules
+**/dist
+**/build
+coverage
+.pnpm-store
+playwright-report
+test-results
+
+# Editor and OS state.
+.vscode
+.idea
+.DS_Store
+
+# Documentation and source files are included intentionally for workspace build.
