@@ -23,7 +23,7 @@ test("triages OS and library vulnerabilities without printing image or target na
     ]},
     {Target:"secret/path",Class:"lang-pkgs",Vulnerabilities:[
       {Severity:"HIGH",VulnerabilityID:"GHSA-abcd-1234-abcd",PkgName:"@pkg/library",
-        InstalledVersion:"1.0.0",FixedVersion:"1.2.0"},
+        InstalledVersion:"1.0.0",FixedVersion:">= 1.2.0"},
     ]},
   ]};
   const details=triageTrivyReport(report);
@@ -34,6 +34,7 @@ test("triages OS and library vulnerabilities without printing image or target na
   printTriage(files(report),x=>lines.push(x));
   assert.ok(lines.some(x=>x.includes("CVE-2026-12345 package=libfoo")));
   assert.ok(lines.some(x=>x.includes("package=@pkg/library installed=1.0.0")));
+  assert.ok(lines.some(x=>x.includes("fixed=>= 1.2.0")));
   assert.equal(lines.join("\n").includes("private.example.com"),false);
   assert.equal(lines.join("\n").includes("secret/path"),false);
 });
