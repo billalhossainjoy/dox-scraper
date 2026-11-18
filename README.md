@@ -243,3 +243,14 @@ hashes manually. The Dockerfile also pins the official Node 24
 **multi-platform manifest-index digest** for both build and runtime.
 The Docker CI workflow checks AMD64 and ARM64 availability before
 building, and the Pi deployment documentation explains digest upgrades.
+
+## ARM64 and SQLite backup/restore validation
+
+GitHub CI builds and runs actual ARM64 API and maintenance worker
+containers using QEMU, in addition to the AMD64 Compose tests. A
+Node.js 24 SQLite backup tool creates a **WAL-consistent snapshot**,
+checks its integrity and restores it into a separate temporary
+database before publishing a non-overwriting backup file.
+
+See [docs/ARM64-BACKUP.md](docs/ARM64-BACKUP.md) for instructions,
+backup safety, Pi-specific validation, and known limitations.
