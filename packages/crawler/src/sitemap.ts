@@ -169,6 +169,19 @@ export async function discoverSitemapUrls(
       maxBytes: Math.min(256 * 1024, limits.maxBytes),
       maxRedirects: 2,
     });
+    if (robots.statusCode === 429 || robots.statusCode === 503) {
+      return {
+        seedUrl: seed.href,
+        robotsUrl,
+        sitemapUrls,
+        pageUrls,
+        errors: [{
+          url: robotsUrl,
+          code: "UPSTREAM_UNAVAILABLE",
+          message: `robots.txt returned HTTP ${robots.statusCode}; stopping discovery`,
+        }],
+      };
+    }
     if (robots.statusCode === 200 && new URL(robots.finalUrl).origin === seed.origin) {
       for (const location of parseRobotsSitemaps(robots.html).slice(0, limits.maxSitemaps * 20)) {
         enqueue(location, new URL(robots.finalUrl));
@@ -192,6 +205,14 @@ export async function discoverSitemapUrls(
         maxBytes: limits.maxBytes,
         maxRedirects: 2,
       });
+      if (response.statusCode === 429 || response.statusCode === 503) {
+        errors.push({
+          url: current,
+          code: "UPSTREAM_UNAVAILABLE",
+          message: `Sitemap returned HTTP ${response.statusCode}; stopping discovery`,
+        });
+        break;
+      }
       if (response.statusCode !== 200) {
         if (response.statusCode !== 404) {
           errors.push({ url: current, code: "HTTP_ERROR", message: `Sitemap returned HTTP ${response.statusCode}` });
