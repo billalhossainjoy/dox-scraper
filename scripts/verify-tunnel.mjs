@@ -1,3 +1,4 @@
+/* global URL, fetch, console, AbortSignal, process */
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
