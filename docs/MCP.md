@@ -130,3 +130,26 @@ tool errors, and REST delegation. A separate test exercises REST
 headers, authentication forwarding, response caps and redirect
 blocking. CI does not require a running webpage, internet connection
 or Raspberry Pi, and does not claim to have deployed MCP to ChatGPT.
+
+## Cloudflare Access for remote MCP REST connections
+
+A local MCP subprocess can connect to an API published behind
+Cloudflare Access **without** adding a public MCP listener.
+Configure the MCP host with:
+
+```dotenv
+DOX_MCP_API_URL=https://scraper.YOUR_DOMAIN
+DOX_SCRAPER_API_KEY=YOUR_PRIVATE_API_BEARER_TOKEN
+DOX_CF_ACCESS_CLIENT_ID=YOUR_CLOUDFLARE_SERVICE_TOKEN_ID
+DOX_CF_ACCESS_CLIENT_SECRET=YOUR_CLOUDFLARE_SERVICE_TOKEN_SECRET
+```
+
+The proxy adds both Cloudflare Access headers to the REST API request
+only when both values are provided **and** `DOX_MCP_API_URL` uses
+HTTPS. The API bearer remains required. The proxy rejects redirects,
+so credential headers are never forwarded to a different origin.
+Keep all three secrets out of source control. For the existing
+loopback development mode, leave Cloudflare Access values empty.
+
+See [CLOUDFLARE.md](CLOUDFLARE.md) for the required Access Service
+Auth policy and live deployment verification procedure.

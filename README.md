@@ -99,10 +99,7 @@ individual target responses are limited to at most 2 MiB. The fetcher blocks
 local/private/reserved IP destinations and validates each redirect.
 Only HTML and XHTML responses are converted to Markdown.
 
-**This is not yet a public crawler service.** The MVP does not yet implement robots.txt access-rule enforcement or
-persistent, distributed crawler coordination. It includes an optional
-network-restricted Playwright renderer, disabled by default. Keep the API bound to localhost and do not expose
-it publicly through Cloudflare Tunnel until those controls are added.
+**This is not an unrestricted public crawler service.** The optional, allowlisted crawl API enforces robots.txt and per-domain pacing, but there is no distributed crawler coordinator. Browser rendering is disabled in the Pi Compose deployment. Keep the API bound to localhost and publish it only through a correctly configured Cloudflare Access-protected tunnel with an independent API bearer token.
 Respect each target website's terms and access restrictions.
 
 ## License
@@ -146,9 +143,7 @@ entries in **SQLite**, using Node.js 24's built-in driver. It includes
 versioned migrations, WAL mode, size limits and restart recovery.
 
 The `createPersistedCrawlJob()` adapter checkpoints a job as pages
-complete. REST endpoints for submitting and viewing crawl jobs are a
-later milestone; the existing `/v1/scrape` endpoint still uses its
-in-memory response cache.
+complete. The authenticated REST crawl endpoints are available when explicitly enabled; `/v1/scrape` continues to use an in-memory response cache.
 
 See [docs/STORAGE.md](docs/STORAGE.md) for usage, data model, and backup
 and security considerations.
@@ -195,3 +190,19 @@ Crawl execution currently happens inside the API, **not** the maintenance
 worker. Browser rendering remains disabled. See
 [docs/DEPLOY-PI.md](docs/DEPLOY-PI.md) for full setup,
 SSD and backup guidance and security limitations.
+
+## Secure Cloudflare Tunnel (opt-in)
+
+The Raspberry Pi deployment can use an **existing Cloudflare Tunnel**
+to publish exactly one HTTPS hostname, protected by
+**Cloudflare Access service tokens** and a separate Dox Scraper
+API bearer key. The application adds optional hostname
+verification, `no-store` security headers, and structured logs
+without query strings or credential values.
+
+The repository **does not modify your live Cloudflare account**.
+Follow [docs/CLOUDFLARE.md](docs/CLOUDFLARE.md) to add the
+published hostname and Access policy, then run the
+`scripts/verify-tunnel.mjs` two-layer authentication smoke test
+before allowing remote traffic. The API and SQLite worker remain
+private, and inbound ports stay closed.

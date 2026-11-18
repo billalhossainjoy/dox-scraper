@@ -43,6 +43,9 @@ jobs:
       - name: Test
         run: pnpm test
 
+      - name: Test Cloudflare Tunnel verification logic offline
+        run: node --test scripts/verify-tunnel.test.mjs
+
       - name: Validate Docker Compose deployment
         env:
           DOX_SCRAPER_API_KEY: ci-not-a-real-secret

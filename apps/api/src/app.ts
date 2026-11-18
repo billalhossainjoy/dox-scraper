@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { edgeSecurity, type AccessLogEntry } from "./edge-security.js";
 import { bodyLimit } from "hono/body-limit";
 import { z } from "zod";
 import { FetchError, fetchPage } from "@dox-scraper/fetcher";
@@ -47,10 +48,22 @@ export interface AppOptions {
   /** Optional injected store or manager for isolated offline tests. */
   crawlStore?: SqliteCrawlStore;
   crawlManager?: CrawlManager;
+  /** Optional host allowlist for secure tunnel routing. */
+  publicHostname?: string;
+  /** Structured, redacted access logging; disabled by default in development. */
+  onAccessLog?: (entry: AccessLogEntry) => void;
 }
 
 export function createApp(options: AppOptions = {}) {
   const app = new Hono();
+  const logging = options.onAccessLog ??
+    (process.env.DOX_HTTP_ACCESS_LOGS === "true"
+      ? (event: AccessLogEntry) => console.info(JSON.stringify(event))
+      : undefined);
+  app.use("*", edgeSecurity({
+    publicHostname: options.publicHostname ?? process.env.DOX_PUBLIC_HOSTNAME ?? "",
+    ...(logging ? { onAccessLog: logging } : {}),
+  }));
   const secret = options.apiKey ?? "";
   // One bounded in-memory cache per API instance; no cookies or credentials
   // are forwarded by the HTTP fetcher. Tests can inject a scrape service.
@@ -205,7 +218,7 @@ export function createApp(options: AppOptions = {}) {
             error: { code: error.code, message: error.message },
           }, error.httpStatus);
         }
-        console.error("Unexpected scrape failure", error);
+        console.error("Unexpected scrape failure", error instanceof Error ? error.name : "unknown");
         return c.json({
           success: false,
           error: { code: "INTERNAL_ERROR", message: "Unable to scrape the requested webpage" },
