@@ -1,9 +1,11 @@
 import { lookup as dnsLookup } from "node:dns";
 import { request as httpRequest, type IncomingHttpHeaders, type IncomingMessage } from "node:http";
 import { request as httpsRequest } from "node:https";
-import { isIP } from "node:net";
 import type { Readable } from "node:stream";
-import ipaddr from "ipaddr.js";
+import { isAllowedHostname, selectPublicDnsAddress } from "./network.js";
+
+export { isPublicIp, isAllowedHostname, selectPublicDnsAddress } from "./network.js";
+export type { ResolvedAddress } from "./network.js";
 
 export interface FetchPageOptions {
   timeoutMs?: number;
@@ -13,6 +15,8 @@ export interface FetchPageOptions {
   /** Conditional request validators, normally supplied by the response cache. */
   ifNoneMatch?: string;
   ifModifiedSince?: string;
+  /** Cancels the entire redirect chain; also enforces the overall timeout. */
+  signal?: AbortSignal;
 }
 
 export interface FetchPageResult {
@@ -28,24 +32,11 @@ export interface FetchPageResult {
 
 export class FetchError extends Error {
   constructor(
-    public readonly code: "INVALID_URL" | "BLOCKED_ADDRESS" | "TOO_MANY_REDIRECTS" | "RESPONSE_TOO_LARGE" | "TIMEOUT" | "NETWORK_ERROR" | "INVALID_RESPONSE",
+    public readonly code: "INVALID_URL" | "BLOCKED_ADDRESS" | "TOO_MANY_REDIRECTS" | "RESPONSE_TOO_LARGE" | "TIMEOUT" | "ABORTED" | "NETWORK_ERROR" | "INVALID_RESPONSE",
     message: string,
   ) {
     super(message);
     this.name = "FetchError";
-  }
-}
-
-/**
- * A conservative allowlist policy: only addresses classified as global unicast.
- * ipaddr.process converts IPv4-mapped IPv6 addresses to IPv4 before classification.
- */
-export function isPublicIp(address: string): boolean {
-  try {
-    const parsed = ipaddr.process(address);
-    return parsed.range() === "unicast";
-  } catch {
-    return false;
   }
 }
 
@@ -63,12 +54,8 @@ export function validateTargetUrl(input: string | URL): URL {
     throw new FetchError("INVALID_URL", "URLs containing credentials are not supported");
   }
 
-  const host = target.hostname.replace(/^\[|\]$/g, "").replace(/\.$/, "").toLowerCase();
-  if (host === "localhost" || host.endsWith(".localhost") || host.endsWith(".local")) {
-    throw new FetchError("BLOCKED_ADDRESS", "Local network hosts are not allowed");
-  }
-  if (isIP(host) && !isPublicIp(host)) {
-    throw new FetchError("BLOCKED_ADDRESS", "Non-public IP addresses are not allowed");
+  if (!isAllowedHostname(target.hostname)) {
+    throw new FetchError("BLOCKED_ADDRESS", "Local, metadata or non-public destinations are not allowed");
   }
   target.hash = "";
   return target;
@@ -105,14 +92,22 @@ interface SingleResponse {
   body: string;
 }
 
-async function requestOnce(target: URL, options: Required<FetchPageOptions>): Promise<SingleResponse> {
+type SafeFetchOptions = Required<Omit<FetchPageOptions, "signal">> & {
+  signal: AbortSignal;
+  externalSignal?: AbortSignal;
+};
+
+async function requestOnce(target: URL, options: SafeFetchOptions): Promise<SingleResponse> {
   return new Promise((resolve, reject) => {
     const client = target.protocol === "https:" ? httpsRequest : httpRequest;
     const request = client(
       target,
       {
         method: "GET",
-        signal: AbortSignal.timeout(options.timeoutMs),
+        signal: options.signal,
+        // Pin the validated DNS answer to the socket; do not initiate an
+        // automatic secondary lookup/address-family race.
+        autoSelectFamily: false,
         headers: {
           "user-agent": options.userAgent,
           accept: "text/html,application/xhtml+xml;q=0.9,text/plain;q=0.8",
@@ -131,12 +126,12 @@ async function requestOnce(target: URL, options: Required<FetchPageOptions>): Pr
                 callback(error, "", 4);
                 return;
               }
-              if (addresses.length === 0 || addresses.some((item) => !isPublicIp(item.address))) {
+              try {
+                const address = selectPublicDnsAddress(addresses);
+                callback(null, address.address, address.family);
+              } catch {
                 callback(new FetchError("BLOCKED_ADDRESS", "DNS returned a non-public IP address"), "", 4);
-                return;
               }
-              const address = addresses[0]!;
-              callback(null, address.address, address.family);
             },
           );
         },
@@ -167,7 +162,11 @@ async function requestOnce(target: URL, options: Required<FetchPageOptions>): Pr
       if (error instanceof FetchError) {
         reject(error);
       } else if ((error as NodeJS.ErrnoException).name === "AbortError" || (error as NodeJS.ErrnoException).code === "ABORT_ERR") {
-        reject(new FetchError("TIMEOUT", "The HTTP request timed out"));
+        if (options.externalSignal?.aborted) {
+          reject(new FetchError("ABORTED", "The HTTP request was cancelled"));
+        } else {
+          reject(new FetchError("TIMEOUT", "The HTTP request timed out"));
+        }
       } else {
         reject(new FetchError("NETWORK_ERROR", error.message));
       }
@@ -177,7 +176,7 @@ async function requestOnce(target: URL, options: Required<FetchPageOptions>): Pr
 }
 
 export async function fetchPage(input: string, config: FetchPageOptions = {}): Promise<FetchPageResult> {
-  const options: Required<FetchPageOptions> = {
+  const options: Required<Omit<FetchPageOptions, "signal">> = {
     timeoutMs: config.timeoutMs ?? 15_000,
     maxBytes: config.maxBytes ?? 2 * 1024 * 1024,
     maxRedirects: config.maxRedirects ?? 5,
@@ -191,14 +190,22 @@ export async function fetchPage(input: string, config: FetchPageOptions = {}): P
     throw new FetchError("INVALID_URL", "Invalid timeout, response size, or redirect limit");
   }
 
-  // Validators can originate in untrusted server responses: never allow header injection.
-  for (const value of [options.ifNoneMatch, options.ifModifiedSince]) {
-    if (value.length > 1024 || /[\\r\\n\\x00]/.test(value)) {
-      throw new FetchError("INVALID_URL", "Invalid conditional request header");
+  // Headers can include upstream-provided validators: block all control
+  // characters (not just CR/LF) before Node constructs a request.
+  for (const value of [options.userAgent, options.ifNoneMatch, options.ifModifiedSince]) {
+    if (value.length > 1024 || Array.from(value).some((char) =>
+      char.charCodeAt(0) < 32 || char.charCodeAt(0) === 127)) {
+      throw new FetchError("INVALID_URL", "Invalid outbound request header");
     }
   }
 
   const requestedUrl = validateTargetUrl(input).href;
+  const signal = config.signal
+    ? AbortSignal.any([config.signal, AbortSignal.timeout(options.timeoutMs)])
+    : AbortSignal.timeout(options.timeoutMs);
+  if (signal.aborted) {
+    throw new FetchError(config.signal?.aborted ? "ABORTED" : "TIMEOUT", "Request cancelled or timed out");
+  }
   let current = validateTargetUrl(input);
   for (let redirectCount = 0; redirectCount <= options.maxRedirects; redirectCount++) {
     // Never forward a validator to a different host after following a redirect.
@@ -207,7 +214,10 @@ export async function fetchPage(input: string, config: FetchPageOptions = {}): P
       ifNoneMatch: "",
       ifModifiedSince: "",
     };
-    const response = await requestOnce(current, requestOptions);
+    if (signal.aborted) {
+      throw new FetchError(config.signal?.aborted ? "ABORTED" : "TIMEOUT", "Request cancelled or timed out");
+    }
+    const response = await requestOnce(current, { ...requestOptions, signal, externalSignal: config.signal });
     if ([301, 302, 303, 307, 308].includes(response.statusCode)) {
       const location = response.headers.location;
       if (!location) {
