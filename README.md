@@ -297,3 +297,15 @@ converter enforce these limits.
 
 See [docs/SVG-EXTRACTION.md](docs/SVG-EXTRACTION.md) for details,
 security boundaries and unsupported SVG rendering/OCR features.
+
+## Continuous dependency and container security checks
+
+GitHub Actions audits the frozen pnpm workspace on dependency changes
+and weekly. Dependabot proposes dependency and action updates for
+review. The Docker workflow scans both built images with a
+version-pinned, SHA-pinned Trivy scanner and blocks **CRITICAL
+findings that have available fixes**. HIGH and unfixed findings
+are reported for review, not silently declared safe.
+
+See [docs/SECURITY-SCANNING.md](docs/SECURITY-SCANNING.md) for
+the CI policy, remediation process and remaining release checks.
