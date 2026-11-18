@@ -19,6 +19,9 @@ jobs:
             [.manifests[] | select(.platform.os == "linux") | .platform.architecture]
               | (index("amd64") != null and index("arm64") != null)
           '
-          digest="$(docker buildx imagetools inspect "$ref" | awk '/^Digest:/ {print $2; exit}')"
+          digest="sha256:$(printf '%s' "$manifest" | sha256sum | awk '{print $1}')"
           [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]]
+          # Independently resolve the digest-addressed index (no moving tag).
+          resolved="$(docker buildx imagetools inspect --raw "docker.io/library/node@$digest")"
+          test "$(printf '%s' "$resolved" | sha256sum | awk '{print $1}')" = "${digest#sha256:}"
           echo "VERIFIED_LATEST_NODE_24_MULTIARCH_DIGEST=$digest"
