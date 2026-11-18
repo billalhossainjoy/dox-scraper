@@ -2,7 +2,7 @@ import { lookup as dnsLookup } from "node:dns";
 import { request as httpRequest, type IncomingHttpHeaders, type IncomingMessage } from "node:http";
 import { request as httpsRequest } from "node:https";
 import { isIP } from "node:net";
-import { Readable } from "node:stream";
+import type { Readable } from "node:stream";
 import ipaddr from "ipaddr.js";
 
 export interface FetchPageOptions {
