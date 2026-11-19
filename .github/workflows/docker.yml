@@ -85,6 +85,34 @@ jobs:
             '
           done
 
+      # Collect non-sensitive evidence about the SQLite engine the Node runtime
+      # actually loads. Installed Debian libsqlite3 and Node's built-in SQLite
+      # are not necessarily the same library or version.
+      - name: Record runtime SQLite version and selected compile features
+        shell: bash
+        run: |
+          set -euo pipefail
+          for image in dox-scraper-api:local dox-scraper-worker:local; do
+            docker run --rm --network none --entrypoint node "$image" -e '
+              const {DatabaseSync} = require("node:sqlite");
+              const db = new DatabaseSync(":memory:");
+              const version = db.prepare("SELECT sqlite_version() AS v").get().v;
+              const options = new Set(
+                db.prepare("PRAGMA compile_options").all().map(row => row.compile_options)
+              );
+              db.close();
+              if (!/^\d+\.\d+\.\d+$/.test(version)) process.exit(1);
+              const libsqliteLoaded = process.report.getReport().sharedObjects
+                .some(name => /(?:^|\/)libsqlite3\.so(?:\.|$)/.test(name));
+              console.log(
+                "NodeSQLite version=" + version +
+                " FTS5=" + options.has("ENABLE_FTS5") +
+                " SESSION=" + options.has("ENABLE_SESSION") +
+                " loaded-libsqlite3-shared-object=" + libsqliteLoaded
+              );
+            '
+          done
+
       # v0.36.0 was verified as a signed official GitHub release;
       # pin the exact commit, never a floating Trivy action tag.
       - name: Scan API container for HIGH and CRITICAL advisories
