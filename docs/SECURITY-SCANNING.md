@@ -48,14 +48,16 @@ to a specific version; audit updates before changing either pin.
 Each image scan emits a JSON report for the job's local CI workspace.
 `scripts/check-container-vulnerabilities.mjs` reads both reports,
 validates their structure and prints only summarized advisory counts
-plus bounded, validated CVE/GHSA identifiers.
+plus bounded, validated CVE/GHSA identifiers. The additional
+`scripts/triage-image-vulnerabilities.mjs` gives a sanitized,
+24-entry-per-image list of affected packages and reported fixed versions.
 
 **Policy:**
 
-- Any **CRITICAL** finding for which Trivy identifies a fixed
-  package version blocks the Docker release CI job.
-- Other CRITICAL and HIGH findings are reported for human review.
-  A missing fix does **not** imply the issue is harmless.
+- Any **HIGH or CRITICAL** finding for which Trivy identifies a
+  fixed package version blocks the Docker release CI job.
+- CRITICAL and HIGH findings **without** reported fixes remain visible
+  for human review. A missing fix does **not** imply the issue is harmless.
 - Invalid or missing vulnerability scan output fails the job.
 - The scanner does not receive the private API bearer, live SQLite
   data or your Cloudflare credentials. No Compose environment
@@ -93,6 +95,7 @@ pnpm audit --prod --audit-level high
 pnpm audit --audit-level critical
 
 node --test scripts/check-container-vulnerabilities.test.mjs
+node --test scripts/triage-image-vulnerabilities.test.mjs
 ```
 
 Use GitHub Actions for actual container image scanning, because the
@@ -111,3 +114,20 @@ against the correct Access-protected Cloudflare hostname.
 See [RELEASE-CHECKLIST.md](RELEASE-CHECKLIST.md),
 [PI-PREFLIGHT.md](PI-PREFLIGHT.md) and
 [CLOUDFLARE.md](CLOUDFLARE.md).
+
+## 6. Runtime image remediation evidence
+
+Issue #56 replaced the original Node.js 24 Debian Bookworm base with
+a verified, immutable **Debian 13 Trixie** multiarchitecture index.
+The runtime images no longer contain globally bundled npm; the
+specific Debian `zlib1g` security fix is version-pinned.
+
+The observed scanner counts changed from **1 CRITICAL and 43 HIGH**
+per image on Bookworm, to **0 CRITICAL and 46 HIGH** per image with
+**no HIGH/CRITICAL fixes remaining reported** after remediation.
+The 46 HIGH OS advisories without reported fixes remain a release
+risk to assess, not evidence of zero vulnerability.
+
+See [VULNERABILITY-REMEDIATION.md](VULNERABILITY-REMEDIATION.md)
+for exact CVEs, the target image digest, the targeted patch and
+reproducibility limitations.
