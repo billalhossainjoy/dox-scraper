@@ -7,6 +7,9 @@ const VALID_ID = /^(?:CVE-\d{4}-\d{4,}|GHSA-[A-Za-z0-9-]{9,})$/;
 const VALID_PACKAGE = /^[A-Za-z0-9@._+/-]{1,90}$/;
 const VALID_VERSION = /^[A-Za-z0-9:._+~^><=|,* -]{1,100}$/;
 const MAX_ROWS = 24;
+// Keep the full currently observed 46-item unfixed HIGH inventory visible,
+// while retaining an explicit bound on adversarial scanner output.
+const MAX_UNFIXED_ROWS = 64;
 
 function safe(value, regex) {
   return typeof value === "string" && regex.test(value) ? value : "[redacted]";
@@ -92,9 +95,9 @@ export function triageTrivyReport(report) {
     a.pkg.localeCompare(b.pkg) || a.id.localeCompare(b.id));
   return { totals, entries: entries.slice(0, MAX_ROWS),
     truncated: entries.length > MAX_ROWS,
-    unfixedHigh: unfixedHigh.slice(0, MAX_ROWS),
+    unfixedHigh: unfixedHigh.slice(0, MAX_UNFIXED_ROWS),
     unfixedHighTotal: unfixedHigh.length,
-    unfixedHighTruncated: unfixedHigh.length > MAX_ROWS };
+    unfixedHighTruncated: unfixedHigh.length > MAX_UNFIXED_ROWS };
 }
 
 export function printTriage(paths, log = console.log) {
@@ -129,7 +132,7 @@ export function printTriage(paths, log = console.log) {
         " package=" + entry.pkg + " installed=" + entry.installed +
         " fixed=not-reported");
     }
-    if (result.unfixedHighTruncated) log(name + " additional unfixed HIGH entries omitted (24 row limit)");
+    if (result.unfixedHighTruncated) log(name + " additional unfixed HIGH entries omitted (" + MAX_UNFIXED_ROWS + " row limit)");
   }
 }
 
