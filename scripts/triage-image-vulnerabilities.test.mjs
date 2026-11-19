@@ -58,3 +58,35 @@ test("limits output rows and fails closed for invalid reports", () => {
   assert.throws(()=>triageTrivyReport({Results:[{Vulnerabilities:"wrong"}]}),/Invalid/);
   assert.throws(()=>printTriage(["missing.json","missing2.json"],()=>{}),/Unable to validate/);
 });
+
+test("lists unfixed HIGH advisories by package without disclosing scan metadata", () => {
+  const report={Results:[{Target:"registry.example/SECRET",Class:"os-pkgs",Vulnerabilities:[
+    {Severity:"HIGH",VulnerabilityID:"CVE-2026-99991",PkgName:"libexample",
+      InstalledVersion:"1.3",FixedVersion:""},
+    {Severity:"HIGH",VulnerabilityID:"CVE-2026-99991",PkgName:"libexample",
+      InstalledVersion:"1.3",FixedVersion:""},
+    {Severity:"HIGH",VulnerabilityID:"CVE-2026-99992",PkgName:"bad\\nSECRET",
+      InstalledVersion:"bad\\rSECRET"},
+  ]}]};
+  const triage=triageTrivyReport(report);
+  assert.equal(triage.unfixedHighTotal,2);
+  assert.equal(triage.unfixedHigh.length,2);
+  const lines=[];
+  printTriage(files(report),x=>lines.push(x));
+  const joined=lines.join("\\n");
+  assert.ok(joined.includes("UNFIXED HIGH os CVE-2026-99991 package=libexample installed=1.3"));
+  assert.ok(joined.includes("package=[redacted] installed=[redacted]"));
+  assert.ok(!joined.includes("registry.example"));
+  assert.ok(!joined.includes("SECRET"));
+});
+test("bounds the separate unfixed HIGH inventory independently of blocking findings", () => {
+  const report={Results:[{Class:"os-pkgs",Vulnerabilities:Array.from({length:50},(_,i)=>({
+    Severity:"HIGH",VulnerabilityID:"CVE-2026-"+(30000+i),
+    PkgName:"libexample",InstalledVersion:"1.0",FixedVersion:""
+  }))}]};
+  const result=triageTrivyReport(report);
+  assert.equal(result.entries.length,0);
+  assert.equal(result.unfixedHighTotal,50);
+  assert.equal(result.unfixedHigh.length,24);
+  assert.equal(result.unfixedHighTruncated,true);
+});
