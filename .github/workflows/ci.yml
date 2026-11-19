@@ -43,6 +43,9 @@ jobs:
       - name: Test
         run: pnpm test
 
+      - name: Test bounded container vulnerability triage reports
+        run: node --test scripts/triage-image-vulnerabilities.test.mjs
+
       - name: Test container scan report security gate
         run: node --test scripts/check-container-vulnerabilities.test.mjs
 

@@ -32,7 +32,9 @@ has been tested.
       and fail on manifest/lockfile drift
 - [x] Add recurring pnpm dependency audits (production HIGH/CRITICAL
       and all-dependency CRITICAL), Dependabot update PRs and a
-      container CRITICAL-with-fix release gate
+      container HIGH/CRITICAL-with-fix release gate
+- [x] Update the runtime Node 24 Debian 13 Trixie image, remove unused
+      global npm and pin the available `zlib1g` security fix
 - [ ] Review outstanding HIGH/unfixed advisories and package licenses
       manually before public deployment
 - [x] Pin an official Node 24 **multi-architecture OCI index digest**
@@ -133,7 +135,11 @@ script handling via an isolated browser architecture.
 - [SQLite backups and restart handling](STORAGE.md)
 
 GitHub Actions now performs a weekly dependency advisory check and
-scans built API/worker Docker images for actionable CRITICAL findings.
-Review reported HIGH and unfixed advisories separately; these jobs do
+scans built API/worker Docker images for fixable HIGH/CRITICAL findings.
+The latest scan still found **46 HIGH OS advisories per image without
+reported fixes**. Review them before deployment; these jobs do
 **not** guarantee the absence of vulnerabilities. See
 [SECURITY-SCANNING.md](SECURITY-SCANNING.md).
+
+For the exact per-image findings, mitigation history and Debian apt
+pin caveat, see [VULNERABILITY-REMEDIATION.md](VULNERABILITY-REMEDIATION.md).

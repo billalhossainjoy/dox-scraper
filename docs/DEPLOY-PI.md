@@ -101,7 +101,7 @@ docker compose logs --tail=100 api worker
 On a Pi, Docker builds natively for ARM64; no separate ARM image
 or platform emulation flag is needed. The Dockerfile uses a pinned
 **multi-architecture manifest-index digest** for the official
-`node:24-bookworm-slim` image, verified to contain both Linux AMD64
+`node:24-trixie-slim` image, verified to contain both Linux AMD64
 and Linux ARM64. The **build and runtime stages both target the
 deployment architecture** so optional native Node dependencies are
 not accidentally copied from an x86 build into the Pi image.
@@ -320,3 +320,22 @@ and a configured Compose `.env` file. The script will **never print**
 the resolved Compose JSON or raw Docker inspect results because they
 can contain environment secrets. See
 [PI-PREFLIGHT.md](PI-PREFLIGHT.md) for the complete check list.
+
+## Runtime image security updates
+
+The final API and worker image use the verified Node.js 24 Debian 13
+Trixie slim index digest, delete the unused globally bundled npm CLI
+and install exactly the patched Debian `zlib1g` package version
+`1:1.3.dfsg+really1.3.1-1+deb13u1`. The build stage still uses npm
+to provision pnpm, but it does not ship that npm dependency tree into
+the runtime image.
+
+The base image remains immutable and pnpm dependencies frozen. The
+targeted Debian package version is pinned, but its retrieval uses
+Debian's live signed apt repository. If the version is removed from
+the repository, the build will fail rather than silently upgrading
+to a different version. This is not a fully hermetic rebuild.
+
+See [VULNERABILITY-REMEDIATION.md](VULNERABILITY-REMEDIATION.md)
+for the scanner evidence, 46 remaining HIGH OS findings per image
+without reported fixes and release-risk assessment.

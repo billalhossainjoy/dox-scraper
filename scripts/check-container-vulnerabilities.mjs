@@ -5,8 +5,8 @@ import { pathToFileURL } from "node:url";
 
 /**
  * Consume JSON from Trivy's pinned container scanner and fail closed on
- * malformed reports. Only actionable (FixedVersion available) CRITICAL
- * findings block. Other findings are displayed as counts for review.
+ * malformed reports. Actionable HIGH or CRITICAL findings with an
+ * available fixed version block. Unfixed findings remain visible.
  * Never log image paths, build environment, Docker secrets or whole reports.
  */
 export function summarizeImageScan(document) {
@@ -35,16 +35,16 @@ export function summarizeImageScan(document) {
         if (fixable) counts.fixableHigh += 1;
       } else if (severity === "CRITICAL") {
         counts.critical += 1;
-        if (fixable) {
-          counts.fixableCritical += 1;
-          const id = finding.VulnerabilityID;
-          if (typeof id === "string" &&
-              /^(?:CVE-\d{4}-\d{4,}|GHSA-[a-zA-Z0-9-]+)$/.test(id)) {
-            blockingIds.add(id);
-          }
-        }
+        if (fixable) counts.fixableCritical += 1;
       } else {
         counts.unknown += 1;
+      }
+      if (fixable && (severity === "HIGH" || severity === "CRITICAL")) {
+        const id = finding.VulnerabilityID;
+        if (typeof id === "string" &&
+            /^(?:CVE-\d{4}-\d{4,}|GHSA-[a-zA-Z0-9-]+)$/.test(id)) {
+          blockingIds.add(id);
+        }
       }
     }
   }
@@ -70,12 +70,12 @@ export function checkImageReports(paths, log = console.log) {
       result.fixableCritical + " with fixes); " + result.high +
       " HIGH (" + result.fixableHigh + " with fixes).");
     if (result.blockingIds.length > 0) {
-      log(service + " actionable CRITICAL advisories: " + result.blockingIds.join(", "));
+      log(service + " fixable HIGH/CRITICAL advisories: " + result.blockingIds.join(", "));
     }
-    totalBlockers += result.fixableCritical;
+    totalBlockers += result.fixableCritical + result.fixableHigh;
   }
   if (totalBlockers > 0) {
-    throw new Error("Actionable CRITICAL container vulnerabilities require remediation");
+    throw new Error("Fixable HIGH/CRITICAL container vulnerabilities require remediation");
   }
   return true;
 }

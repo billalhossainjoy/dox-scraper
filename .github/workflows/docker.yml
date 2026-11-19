@@ -12,6 +12,8 @@ on:
       - "scripts/verify-docker-base.sh"
       - "scripts/check-container-vulnerabilities.mjs"
       - "scripts/check-container-vulnerabilities.test.mjs"
+      - "scripts/triage-image-vulnerabilities.mjs"
+      - "scripts/triage-image-vulnerabilities.test.mjs"
       - "scripts/sqlite-backup.mjs"
       - "scripts/sqlite-backup.test.mjs"
       - "scripts/sqlite-restore-drill.mjs"
@@ -28,6 +30,8 @@ on:
       - "scripts/verify-docker-base.sh"
       - "scripts/check-container-vulnerabilities.mjs"
       - "scripts/check-container-vulnerabilities.test.mjs"
+      - "scripts/triage-image-vulnerabilities.mjs"
+      - "scripts/triage-image-vulnerabilities.test.mjs"
       - "scripts/sqlite-backup.mjs"
       - "scripts/sqlite-backup.test.mjs"
       - "scripts/sqlite-restore-drill.mjs"
@@ -64,6 +68,23 @@ jobs:
       - name: Build API and worker images
         run: docker compose -f compose.yaml build api worker
 
+      - name: Verify runtime images contain no globally bundled npm
+        shell: bash
+        run: |
+          set -euo pipefail
+          for image in dox-scraper-api:local dox-scraper-worker:local; do
+            docker run --rm --network none --entrypoint node "$image" -e '
+              const fs = require("node:fs");
+              if (fs.existsSync("/usr/local/lib/node_modules/npm") ||
+                  fs.existsSync("/usr/local/bin/npm") ||
+                  fs.existsSync("/usr/local/bin/npx")) {
+                console.error("Runtime image still contains global npm CLI");
+                process.exit(1);
+              }
+              if (!process.versions.node.startsWith("24.")) process.exit(1);
+            '
+          done
+
       # v0.36.0 was verified as a signed official GitHub release;
       # pin the exact commit, never a floating Trivy action tag.
       - name: Scan API container for HIGH and CRITICAL advisories
@@ -94,7 +115,10 @@ jobs:
           exit-code: "0"
           cache: "false"
 
-      - name: Gate actionable CRITICAL container vulnerabilities
+      - name: Report categorized CRITICAL and fixable HIGH advisory details
+        run: node scripts/triage-image-vulnerabilities.mjs trivy-api.json trivy-worker.json
+
+      - name: Gate fixable HIGH and CRITICAL container vulnerabilities
         run: node scripts/check-container-vulnerabilities.mjs trivy-api.json trivy-worker.json
 
       - name: Reject unsafe production settings before opening the API port

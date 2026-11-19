@@ -35,18 +35,18 @@ test("reads genuine Trivy report shape and summarizes image vulnerability severi
   assert.equal(scan.critical, 2);
   assert.equal(scan.fixableHigh, 1);
   assert.equal(scan.fixableCritical, 1);
-  assert.deepEqual(scan.blockingIds, ["CVE-2026-12347"]);
+  assert.deepEqual(scan.blockingIds, ["CVE-2026-12345", "CVE-2026-12347"]);
 });
 
-test("allows zero/fix-unavailable findings but surfaces both HIGH and CRITICAL totals", () => {
+test("allows only unfixed HIGH and CRITICAL findings while surfacing totals", () => {
   const lines = [];
   assert.equal(checkImageReports(reports({
     Results: [{ Vulnerabilities: [
-      { VulnerabilityID: "CVE-2026-12345", Severity: "HIGH", FixedVersion: "v2" },
+      { VulnerabilityID: "CVE-2026-12345", Severity: "HIGH" },
       { VulnerabilityID: "CVE-2026-12346", Severity: "CRITICAL" },
     ] }],
   }), (line) => lines.push(line)), true);
-  assert.ok(lines[0].startsWith("API: 1 CRITICAL (0 with fixes); 1 HIGH (1 with fixes)."));
+  assert.ok(lines[0].startsWith("API: 1 CRITICAL (0 with fixes); 1 HIGH (0 with fixes)."));
   assert.ok(lines[1].startsWith("Worker: 0 CRITICAL"));
 });
 
@@ -60,11 +60,25 @@ test("blocks fixable CRITICAL CVEs without leaking image names or entire reports
     }],
   });
   assert.throws(() => checkImageReports(files, (line) => lines.push(line)),
-    /Actionable CRITICAL/);
+    /Fixable HIGH\/CRITICAL/);
   const output = lines.join("\n");
   assert.ok(output.includes("CVE-2026-12345"));
   assert.equal(output.includes("very-private-image"), false);
   assert.equal(output.includes("secret-package-name"), false);
+});
+
+test("blocks fixable HIGH advisories and logs only bounded sanitized advisory IDs", () => {
+  const lines = [];
+  const input = reports({
+    Results: [{ Vulnerabilities: [{
+      VulnerabilityID: "CVE-2026-54321", Severity: "HIGH",
+      FixedVersion: "6.28.4", PkgName: "private-high-package",
+    }] }],
+  });
+  assert.throws(() => checkImageReports(input, (line) => lines.push(line)),
+    /Fixable HIGH\/CRITICAL/);
+  assert.ok(lines.some((line) => line.includes("CVE-2026-54321")));
+  assert.ok(lines.every((line) => !line.includes("private-high-package")));
 });
 
 test("fails closed on a missing/malformed report or unexpected vulnerability structure", () => {

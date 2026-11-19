@@ -7,7 +7,7 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 dockerfile="$repo_root/docker/Dockerfile"
 ref="$(sed -n -E 's/^ARG NODE_IMAGE=(.*)$/\1/p' "$dockerfile")"
 
-if [[ ! "$ref" =~ ^docker\.io/library/node:24-bookworm-slim@sha256:[a-f0-9]{64}$ ]]; then
+if [[ ! "$ref" =~ ^docker\.io/library/node:24-trixie-slim@sha256:[a-f0-9]{64}$ ]]; then
   echo "Invalid or unpinned Docker base image reference" >&2
   exit 1
 fi
