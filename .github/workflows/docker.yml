@@ -37,6 +37,12 @@ on:
       - "scripts/sqlite-restore-drill.mjs"
       - "scripts/sqlite-restore-drill.test.mjs"
 
+  # Re-evaluate pinned images against newly published vulnerability data.
+  # CI runs its Docker/SQLite tests but skips costly ARM64 emulation on schedules.
+  schedule:
+    - cron: "17 3 * * 1"
+  workflow_dispatch:
+
 permissions:
   contents: read
 
@@ -372,6 +378,7 @@ jobs:
 
 
   arm64-emulated-smoke:
+    if: github.event_name != 'schedule'
     # Real ARM64 Docker image execution under QEMU, not a physical Pi test.
     runs-on: ubuntu-latest
     timeout-minutes: 40
