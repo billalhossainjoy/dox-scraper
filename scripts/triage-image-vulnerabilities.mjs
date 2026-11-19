@@ -25,7 +25,9 @@ export function triageTrivyReport(report) {
     os: 0, library: 0,
   };
   const entries = [];
+  const unfixedHigh = [];
   const unique = new Set();
+  const unfixedUnique = new Set();
   for (const result of report.Results) {
     if (!result || typeof result !== "object") {
       throw new Error("Invalid Trivy result");
@@ -53,7 +55,22 @@ export function triageTrivyReport(report) {
       if (component === "os") totals.os++;
       if (component === "library") totals.library++;
 
-      // Only list CRITICAL (even without a fix) and fixable HIGH.
+      // List unfixed HIGH separately so release reviewers can see the risk.
+      // This is still a bounded sanitized summary, not a raw Trivy dump.
+      if (severity === "HIGH" && !fixed) {
+        const row = { severity, component,
+          id: safe(vuln.VulnerabilityID, VALID_ID),
+          pkg: safe(vuln.PkgName, VALID_PACKAGE),
+          installed: safe(vuln.InstalledVersion, VALID_VERSION),
+          patched: "not-reported" };
+        const key = [row.component, row.id, row.pkg, row.installed].join("|");
+        if (!unfixedUnique.has(key)) {
+          unfixedUnique.add(key);
+          unfixedHigh.push(row);
+        }
+        continue;
+      }
+      // Primary list: CRITICAL (even without a fix) and fixable HIGH.
       if (!(severity === "CRITICAL" || fixed)) continue;
       const id = safe(vuln.VulnerabilityID, VALID_ID);
       const pkg = safe(vuln.PkgName, VALID_PACKAGE);
@@ -71,8 +88,13 @@ export function triageTrivyReport(report) {
     a.component.localeCompare(b.component) ||
     a.id.localeCompare(b.id) ||
     a.pkg.localeCompare(b.pkg));
+  unfixedHigh.sort((a,b)=> a.component.localeCompare(b.component) ||
+    a.pkg.localeCompare(b.pkg) || a.id.localeCompare(b.id));
   return { totals, entries: entries.slice(0, MAX_ROWS),
-    truncated: entries.length > MAX_ROWS };
+    truncated: entries.length > MAX_ROWS,
+    unfixedHigh: unfixedHigh.slice(0, MAX_ROWS),
+    unfixedHighTotal: unfixedHigh.length,
+    unfixedHighTruncated: unfixedHigh.length > MAX_ROWS };
 }
 
 export function printTriage(paths, log = console.log) {
@@ -100,6 +122,14 @@ export function printTriage(paths, log = console.log) {
         " installed=" + entry.installed + " fixed=" + entry.patched);
     }
     if (result.truncated) log(name + " more advisories omitted (24 row limit)");
+    log(name + " unfixed HIGH distinct advisory/package entries: " + result.unfixedHighTotal +
+      " (first " + result.unfixedHigh.length + " shown; not an acceptance decision)");
+    for (const entry of result.unfixedHigh) {
+      log(name + " UNFIXED HIGH " + entry.component + " " + entry.id +
+        " package=" + entry.pkg + " installed=" + entry.installed +
+        " fixed=not-reported");
+    }
+    if (result.unfixedHighTruncated) log(name + " additional unfixed HIGH entries omitted (24 row limit)");
   }
 }
 
