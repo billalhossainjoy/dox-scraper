@@ -52,12 +52,20 @@ plus bounded, validated CVE/GHSA identifiers. The additional
 `scripts/triage-image-vulnerabilities.mjs` gives a sanitized,
 24-entry-per-image list of CRITICAL/fixable HIGH affected packages and reported fixed versions, plus a separately bounded inventory of up to 64 unfixed HIGH advisory/package entries (including the total distinct count).
 
+GitHub Actions also runs the AMD64 Docker/Compose security workflow every
+Monday at 03:17 UTC (cron) and supports manual dispatch. Scheduled checks
+rebuild the digest-pinned images and rescan them against the current Trivy
+advisory database; scheduled runs skip the slower QEMU ARM64 job. Pull-request
+and release testing still includes ARM64. Weekly rescanning cannot apply
+upstream patches automatically or validate the physical Raspberry Pi.
+
 **Policy:**
 
-- Any **HIGH or CRITICAL** finding for which Trivy identifies a
-  fixed package version blocks the Docker release CI job.
-- CRITICAL and HIGH findings **without** reported fixes remain visible
-  for human review. A missing fix does **not** imply the issue is harmless.
+- **Any CRITICAL** finding blocks the Docker release CI job, even if Trivy
+  does not report an available fix; a new unfixed CRITICAL requires review.
+- A **HIGH** finding with a reported fixed package version also blocks CI.
+- HIGH findings without reported fixes remain visible for human review;
+  they are **not** automatically accepted. A missing fix does not imply safety.
 - Invalid or missing vulnerability scan output fails the job.
 - The scanner does not receive the private API bearer, live SQLite
   data or your Cloudflare credentials. No Compose environment
