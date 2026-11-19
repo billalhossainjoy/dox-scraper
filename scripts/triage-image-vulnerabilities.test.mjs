@@ -87,6 +87,21 @@ test("bounds the separate unfixed HIGH inventory independently of blocking findi
   const result=triageTrivyReport(report);
   assert.equal(result.entries.length,0);
   assert.equal(result.unfixedHighTotal,50);
-  assert.equal(result.unfixedHigh.length,24);
-  assert.equal(result.unfixedHighTruncated,true);
+  assert.equal(result.unfixedHigh.length,50);
+  assert.equal(result.unfixedHighTruncated,false);
+});
+
+test("unfixed HIGH output stays capped at 64 even for oversized scans", () => {
+  const report={Results:[{Class:"os-pkgs",Vulnerabilities:Array.from({length:80},(_,i)=>({
+    Severity:"HIGH",VulnerabilityID:"CVE-2026-"+(50000+i),
+    PkgName:"libsample",InstalledVersion:"1.0",FixedVersion:""
+  }))}]};
+  const triage=triageTrivyReport(report);
+  assert.equal(triage.unfixedHighTotal,80);
+  assert.equal(triage.unfixedHigh.length,64);
+  assert.equal(triage.unfixedHighTruncated,true);
+  const lines=[];
+  printTriage(files(report),line=>lines.push(line));
+  assert.equal(lines.filter(x=>x.includes(" UNFIXED HIGH ")).length,64);
+  assert.ok(lines.some(x=>x.includes("64 row limit")));
 });

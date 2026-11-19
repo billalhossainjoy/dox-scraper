@@ -50,7 +50,7 @@ Each image scan emits a JSON report for the job's local CI workspace.
 validates their structure and prints only summarized advisory counts
 plus bounded, validated CVE/GHSA identifiers. The additional
 `scripts/triage-image-vulnerabilities.mjs` gives a sanitized,
-24-entry-per-image list of CRITICAL/fixable HIGH affected packages and reported fixed versions, plus a separately bounded inventory of the first 24 unfixed HIGH advisory/package entries (including the total distinct count).
+24-entry-per-image list of CRITICAL/fixable HIGH affected packages and reported fixed versions, plus a separately bounded inventory of up to 64 unfixed HIGH advisory/package entries (including the total distinct count).
 
 **Policy:**
 
@@ -155,3 +155,16 @@ public workflow artifacts. Any new patched base/package must pass the
 existing quality, Docker, SQLite and ARM64 checks before release.
 **The Issue #65 release gate remains open** until that review and the
 physical Pi/Cloudflare preflight have actually been completed.
+
+For Issue #65, the unfixed HIGH entry limit was raised from 24 to 64 so the
+latest observed 46 advisory/package combinations per image can be reviewed
+from sanitized CI logs without publishing the complete Trivy JSON. If the
+count exceeds 64, CI explicitly states that entries were omitted and the
+full local report must be reviewed securely before launch.
+
+Node's built-in `node:sqlite` may use a different SQLite library/version
+than Debian's installed `libsqlite3-0` package. The Docker workflow logs
+sanitized runtime SQLite version, build feature flags relevant to the
+published CVEs, and presence of a loaded libsqlite3 shared object. This
+provides evidence for assessment but does **not** prove a finding harmless
+or remove the requirement to review OS and bundled dependencies.
