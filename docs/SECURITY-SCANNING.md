@@ -50,7 +50,7 @@ Each image scan emits a JSON report for the job's local CI workspace.
 validates their structure and prints only summarized advisory counts
 plus bounded, validated CVE/GHSA identifiers. The additional
 `scripts/triage-image-vulnerabilities.mjs` gives a sanitized,
-24-entry-per-image list of affected packages and reported fixed versions.
+24-entry-per-image list of CRITICAL/fixable HIGH affected packages and reported fixed versions, plus a separately bounded inventory of the first 24 unfixed HIGH advisory/package entries (including the total distinct count).
 
 **Policy:**
 
@@ -131,3 +131,27 @@ risk to assess, not evidence of zero vulnerability.
 See [VULNERABILITY-REMEDIATION.md](VULNERABILITY-REMEDIATION.md)
 for exact CVEs, the target image digest, the targeted patch and
 reproducibility limitations.
+
+## 7. Issue #65 — review of unfixed HIGH advisories
+
+Docker CI now prints a **separate, sorted, sanitized and capped** listing of
+unfixed HIGH advisory/package combinations for both images. It reports the
+full distinct-item count even when the output is capped at 24 entries per
+image. This is for human review, **not** an automatic waiver or finding that
+these vulnerabilities are unreachable. API and worker results overlap.
+
+Use the latest successful Docker Compose deployment run's
+"Report categorized CRITICAL and fixable HIGH advisory details" step to
+collect the public CVE IDs, packages and installed versions. For every
+finding, inspect the current Debian advisory and upstream patch status,
+classify runtime exposure (including whether the vulnerable feature is
+reachable), record compensating controls, and obtain an explicit risk decision.
+The scanner's empty FixedVersion is not proof that no patch exists.
+
+If the complete list has more than 24 entries, perform an authorized,
+local review of the full Trivy JSON reports from a trusted runner or
+workstation. Do not upload raw reports with private image metadata to
+public workflow artifacts. Any new patched base/package must pass the
+existing quality, Docker, SQLite and ARM64 checks before release.
+**The Issue #65 release gate remains open** until that review and the
+physical Pi/Cloudflare preflight have actually been completed.
