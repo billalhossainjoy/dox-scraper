@@ -35,7 +35,7 @@ test("reads genuine Trivy report shape and summarizes image vulnerability severi
   assert.equal(scan.critical, 2);
   assert.equal(scan.fixableHigh, 1);
   assert.equal(scan.fixableCritical, 1);
-  assert.deepEqual(scan.blockingIds, ["CVE-2026-12345", "CVE-2026-12347"]);
+  assert.deepEqual(scan.blockingIds, ["CVE-2026-12345", "CVE-2026-12346", "CVE-2026-12347"]);
 });
 
 test("allows unfixed HIGH advisories, with counts still visible", () => {
@@ -71,7 +71,7 @@ test("blocks fixable CRITICAL CVEs without leaking image names or entire reports
     }],
   });
   assert.throws(() => checkImageReports(files, (line) => lines.push(line)),
-    /Fixable HIGH\/CRITICAL/);
+    /CRITICAL or fixable HIGH/);
   const output = lines.join("\n");
   assert.ok(output.includes("CVE-2026-12345"));
   assert.equal(output.includes("very-private-image"), false);
@@ -87,7 +87,7 @@ test("blocks fixable HIGH advisories and logs only bounded sanitized advisory ID
     }] }],
   });
   assert.throws(() => checkImageReports(input, (line) => lines.push(line)),
-    /Fixable HIGH\/CRITICAL/);
+    /CRITICAL or fixable HIGH/);
   assert.ok(lines.some((line) => line.includes("CVE-2026-54321")));
   assert.ok(lines.every((line) => !line.includes("private-high-package")));
 });
