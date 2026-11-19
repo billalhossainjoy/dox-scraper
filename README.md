@@ -303,9 +303,22 @@ security boundaries and unsupported SVG rendering/OCR features.
 GitHub Actions audits the frozen pnpm workspace on dependency changes
 and weekly. Dependabot proposes dependency and action updates for
 review. The Docker workflow scans both built images with a
-version-pinned, SHA-pinned Trivy scanner and blocks **CRITICAL
-findings that have available fixes**. HIGH and unfixed findings
-are reported for review, not silently declared safe.
+version-pinned, SHA-pinned Trivy scanner and blocks **HIGH
+or CRITICAL findings with available fixes**. Findings without
+reported fixes remain visible for review, not silently declared safe.
 
 See [docs/SECURITY-SCANNING.md](docs/SECURITY-SCANNING.md) for
 the CI policy, remediation process and remaining release checks.
+
+## Runtime vulnerability remediation
+
+The official pinned Node.js 24 base now uses Debian 13 Trixie.
+Unused global npm packages are removed from both runtime images,
+and a specific patched `zlib1g` version is installed. The
+follow-up Trivy scan reported **0 CRITICAL, 46 HIGH (none with an
+available fix)** per image, compared with 1 CRITICAL and 43 HIGH
+on the previous Debian 12 image. Those remaining HIGH findings
+still require operational review before a public endpoint.
+
+See [docs/VULNERABILITY-REMEDIATION.md](docs/VULNERABILITY-REMEDIATION.md)
+for the CVEs, scanner evidence and remaining limitations.
