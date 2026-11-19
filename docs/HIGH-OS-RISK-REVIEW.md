@@ -15,21 +15,34 @@ Evidence collected on 2026-11-19 UTC. **This is not release approval or risk acc
   counts are not counts of independent exploits. No FixedVersion in a scanner
   report does not establish that no upstream patch exists.
 
-## Confirmed groups from the first 24 entries
+## Complete sanitized CI inventory — 2026-11-19 UTC
 
-| Source area | CVEs observed in CI | Preliminary status |
-| --- | --- | --- |
-| util-linux: bsdutils, libblkid1, liblastlog2-2, libmount1, libsmartcols1 | CVE-2026-76642, CVE-2026-78408, CVE-2026-78409, CVE-2026-78410 | Needs exposure and Debian patch review; several packages share the same advisory |
-| acl: libacl1 | CVE-2026-54369 | Debian Trixie marks vulnerable; upstream acl 2.4.0 fix exists; check privileged pathname operations |
-| sqlite3: libsqlite3-0 | CVE-2026-119373, CVE-2026-119374, CVE-2026-119379 | Review installed Debian SQLite, Node built-in SQLite, FTS5/session features, and untrusted inputs |
-| Other package/advisory combinations | 22 entries not included in previous 24-row output | Await full sanitized inventory; no risk decision possible yet |
+The follow-up [Docker run 44428952236](https://github.com/billalhossainjoy/dox-scraper/actions/runs/44428952236)
+reported **46 HIGH advisory/package combinations** per image (0 CRITICAL,
+0 fixable HIGH). They belong to **11 CVE IDs across six Debian source-package
+families**, not 46 separate exploits. The API and worker findings overlap.
 
-Official references:
+| Source family | CVE IDs observed | Installed binary packages flagged | Exposure assessment |
+| --- | --- | --- | --- |
+| util-linux | CVE-2026-76642; CVE-2026-78408; CVE-2026-78409; CVE-2026-78410 | bsdutils, libblkid1, liblastlog2-2, libmount1, libsmartcols1, libuuid1, login, mount, util-linux | Need to determine whether mount helpers or libraries receive attacker-controlled inputs; container drops capabilities and runs non-root |
+| acl | CVE-2026-54369 | libacl1 | Symlink/ACL manipulation conditions require inspection of privileged callers; container is non-root |
+| sqlite3 | CVE-2026-119373; CVE-2026-119374; CVE-2026-119379 | libsqlite3-0 | Debian shared library is installed, but in CI the Node process reports SQLite 3.54.1, FTS5 and SESSION enabled, and no dynamically loaded libsqlite3 shared object; other processes and SQL features still require review |
+| systemd | CVE-2026-16742 | libsystemd0, libudev1 | Confirm whether affected systemd-homed service/code is present or callable inside the container |
+| ncurses | CVE-2025-69720 | libtinfo6, ncurses-base, ncurses-bin | Reported issue concerns infocmp; check whether it is invoked on untrusted terminfo |
+| perl | CVE-2026-9538 | perl-base | Reported issue relates to Archive::Tar; check whether Perl and Archive::Tar parse untrusted archives at runtime |
+
+This table combines complete sanitized Trivy log evidence with preliminary
+source-level applicability questions. It is not a validated exploitability
+classification. The full *raw* scan report must remain on a trusted runner;
+avoid publishing private registry metadata or environment variables.
+
+Official Debian sources (recheck status on the day of release):
 - https://security-tracker.debian.org/tracker/source-package/util-linux
-- https://security-tracker.debian.org/tracker/CVE-2026-76642
-- https://security-tracker.debian.org/tracker/CVE-2026-54369
+- https://security-tracker.debian.org/tracker/source-package/acl
 - https://security-tracker.debian.org/tracker/source-package/sqlite3
-- https://www.sqlite.org/cves.html
+- https://security-tracker.debian.org/tracker/source-package/systemd
+- https://security-tracker.debian.org/tracker/source-package/ncurses
+- https://security-tracker.debian.org/tracker/source-package/perl
 
 ## Exposure questions — NOT an automatic waiver
 
@@ -63,7 +76,8 @@ tests on both AMD64 and ARM64.
 
 ## Release gate — remains blocked
 
-- [ ] Collect and classify all unfixed HIGH inventory entries.
+- [x] Collect and group all 46 reported unfixed HIGH advisory/package entries.
+- [ ] Verify exploit conditions and exposure for each of the six source groups.
 - [ ] Confirm Debian and upstream patch status; update targeted versions
       only when reviewed fixes exist.
 - [ ] Review package usage and actual reachability, especially SQLite.
@@ -74,3 +88,13 @@ tests on both AMD64 and ARM64.
 - [ ] Verify Cloudflare Tunnel plus Access dual authentication independently.
 
 No real Pi, database, DNS, or Cloudflare settings are modified by this review.
+
+## Recurring review and release policy
+
+A scheduled Monday 03:17 UTC Docker/Compose scan detects newly published
+findings in the same pinned images. A CRITICAL advisory now fails CI even if
+Trivy lists no fixed version; a HIGH advisory with a fixed version also fails.
+Unfixed HIGH findings remain visible but are not waived. The scheduled scan
+skips emulated ARM64 for cost reasons; ARM64 must pass on any actual image
+change or release PR. The owner must still explicitly decide on residual
+risk after verifying the host and Cloudflare Access configuration.

@@ -5,8 +5,8 @@ import { pathToFileURL } from "node:url";
 
 /**
  * Consume JSON from Trivy's pinned container scanner and fail closed on
- * malformed reports. Actionable HIGH or CRITICAL findings with an
- * available fixed version block. Unfixed findings remain visible.
+ * malformed reports. Every CRITICAL and any HIGH with a reported fixed
+ * version block the release. Unfixed HIGH findings remain visible.
  * Never log image paths, build environment, Docker secrets or whole reports.
  */
 export function summarizeImageScan(document) {
@@ -39,7 +39,7 @@ export function summarizeImageScan(document) {
       } else {
         counts.unknown += 1;
       }
-      if (fixable && (severity === "HIGH" || severity === "CRITICAL")) {
+      if (severity === "CRITICAL" || (severity === "HIGH" && fixable)) {
         const id = finding.VulnerabilityID;
         if (typeof id === "string" &&
             /^(?:CVE-\d{4}-\d{4,}|GHSA-[a-zA-Z0-9-]+)$/.test(id)) {
@@ -70,12 +70,12 @@ export function checkImageReports(paths, log = console.log) {
       result.fixableCritical + " with fixes); " + result.high +
       " HIGH (" + result.fixableHigh + " with fixes).");
     if (result.blockingIds.length > 0) {
-      log(service + " fixable HIGH/CRITICAL advisories: " + result.blockingIds.join(", "));
+      log(service + " blocking CRITICAL/fixable HIGH advisories: " + result.blockingIds.join(", "));
     }
-    totalBlockers += result.fixableCritical + result.fixableHigh;
+    totalBlockers += result.critical + result.fixableHigh;
   }
   if (totalBlockers > 0) {
-    throw new Error("Fixable HIGH/CRITICAL container vulnerabilities require remediation");
+    throw new Error("CRITICAL or fixable HIGH container vulnerabilities require remediation");
   }
   return true;
 }
