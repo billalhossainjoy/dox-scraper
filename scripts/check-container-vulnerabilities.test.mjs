@@ -38,16 +38,27 @@ test("reads genuine Trivy report shape and summarizes image vulnerability severi
   assert.deepEqual(scan.blockingIds, ["CVE-2026-12345", "CVE-2026-12347"]);
 });
 
-test("allows only unfixed HIGH and CRITICAL findings while surfacing totals", () => {
+test("allows unfixed HIGH advisories, with counts still visible", () => {
   const lines = [];
   assert.equal(checkImageReports(reports({
     Results: [{ Vulnerabilities: [
       { VulnerabilityID: "CVE-2026-12345", Severity: "HIGH" },
-      { VulnerabilityID: "CVE-2026-12346", Severity: "CRITICAL" },
     ] }],
   }), (line) => lines.push(line)), true);
-  assert.ok(lines[0].startsWith("API: 1 CRITICAL (0 with fixes); 1 HIGH (0 with fixes)."));
+  assert.ok(lines[0].startsWith("API: 0 CRITICAL (0 with fixes); 1 HIGH (0 with fixes)."));
   assert.ok(lines[1].startsWith("Worker: 0 CRITICAL"));
+});
+
+test("blocks unfixed CRITICAL even when scanner reports no fixed version", () => {
+  const lines = [];
+  const inputs = reports({ Results: [{ Target: "secret-registry/image",
+    Vulnerabilities: [
+      { VulnerabilityID: "CVE-2026-12346", Severity: "CRITICAL", FixedVersion: "" },
+    ] }] });
+  assert.throws(() => checkImageReports(inputs, x => lines.push(x)),
+    /CRITICAL or fixable HIGH/);
+  assert.ok(lines.some(x => x.includes("CVE-2026-12346")));
+  assert.ok(lines.every(x => !x.includes("secret-registry")));
 });
 
 test("blocks fixable CRITICAL CVEs without leaking image names or entire reports", () => {
