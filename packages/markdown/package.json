@@ -19,7 +19,7 @@
     "turndown": "^7.2.4"
   },
   "devDependencies": {
-    "@types/node": "^24.10.1",
+    "@types/node": "^26.6.6",
     "@types/sanitize-html": "^2.16.0",
     "@types/turndown": "^5.0.5"
   }

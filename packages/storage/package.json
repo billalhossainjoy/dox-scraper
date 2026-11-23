@@ -21,6 +21,6 @@
     "@dox-scraper/markdown": "workspace:*"
   },
   "devDependencies": {
-    "@types/node": "^24.10.1"
+    "@types/node": "^26.6.6"
   }
 }
