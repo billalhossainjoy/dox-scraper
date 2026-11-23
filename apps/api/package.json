@@ -13,7 +13,7 @@
     "@dox-scraper/fetcher": "workspace:*",
     "@dox-scraper/extractor": "workspace:*",
     "@dox-scraper/markdown": "workspace:*",
-    "@hono/node-server": "^1.19.6",
+    "@hono/node-server": "^2.1.9",
     "hono": "^4.10.6",
     "zod": "^4.1.12",
     "@dox-scraper/cache": "workspace:*",
